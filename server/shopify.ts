@@ -77,12 +77,12 @@ export class ShopifyAPI {
 
   async createOrder(orderData: ShopifyOrder) {
     console.log("🏭 Creating order with location_id:", orderData.location_id);
-    console.log("📦 New approach: Cancel auto-fulfillment and replace with correct warehouse");
+    console.log("📦 Trying direct order update approach for warehouse assignment");
     
     const savedLocationId = orderData.location_id;
     delete orderData.location_id;
     
-    console.log("🎯 Step 1: Creating order (auto-fulfillment will trigger)");
+    console.log("🎯 Step 1: Creating order");
     const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
     
     console.log("📋 Order created:", response.order?.id);
@@ -90,24 +90,32 @@ export class ShopifyAPI {
     
     if (savedLocationId && response.order?.id) {
       try {
-        // Step 2: Get any existing fulfillments and cancel them
-        console.log("🔍 Step 2: Checking for automatic fulfillments to cancel...");
-        const fulfillments = await this.getFulfillments(response.order.id);
-        
-        for (const fulfillment of fulfillments) {
-          if (fulfillment.status === 'pending' || fulfillment.status === 'open') {
-            console.log("❌ Canceling auto-fulfillment:", fulfillment.id);
-            await this.cancelFulfillment(response.order.id, fulfillment.id);
+        // Try updating the order directly with location_id
+        console.log("🔄 Step 2: Updating order with location_id:", savedLocationId);
+        const updateData = {
+          order: {
+            id: response.order.id,
+            location_id: savedLocationId
           }
+        };
+        
+        const updateResponse = await this.makeRequest(`/orders/${response.order.id}.json`, "PUT", updateData);
+        console.log("✅ Order updated with BBH location!");
+        console.log("🏪 Updated location_id:", updateResponse.order?.location_id);
+        
+      } catch (updateError) {
+        console.error("❌ Order update failed:", updateError);
+        console.log("🔄 Falling back to line item approach...");
+        
+        // Fallback: try updating line items with location
+        try {
+          for (const lineItem of response.order.line_items) {
+            await this.updateLineItemLocation(response.order.id, lineItem.id, savedLocationId);
+          }
+          console.log("✅ Line items updated with BBH location!");
+        } catch (lineItemError) {
+          console.error("❌ Line item update also failed:", lineItemError);
         }
-        
-        // Step 3: Create our own fulfillment with correct location
-        console.log("🚚 Step 3: Creating fulfillment for BBH location:", savedLocationId);
-        await this.createFulfillment(response.order.id, savedLocationId, response.order.line_items);
-        console.log("✅ Successfully replaced fulfillment with BBH location!");
-        
-      } catch (fulfillmentError) {
-        console.error("❌ Fulfillment replacement failed:", fulfillmentError);
       }
     }
     
@@ -126,6 +134,18 @@ export class ShopifyAPI {
 
   async cancelFulfillment(orderId: number, fulfillmentId: number) {
     return this.makeRequest(`/orders/${orderId}/fulfillments/${fulfillmentId}/cancel.json`, "POST", {});
+  }
+
+  async updateLineItemLocation(orderId: number, lineItemId: number, locationId: number) {
+    const updateData = {
+      line_item: {
+        id: lineItemId,
+        fulfillment_service: "manual",
+        location_id: locationId
+      }
+    };
+    
+    return this.makeRequest(`/orders/${orderId}/line_items/${lineItemId}.json`, "PUT", updateData);
   }
 
   async createFulfillment(orderId: number, locationId: number, lineItems?: any[]) {
