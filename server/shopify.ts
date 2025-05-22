@@ -76,7 +76,32 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    return this.makeRequest("/orders.json", "POST", { order: orderData });
+    const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
+    
+    // If order creation was successful and we have a location_id, create a fulfillment
+    if (response.order && orderData.location_id) {
+      try {
+        await this.createFulfillment(response.order.id, orderData.location_id);
+      } catch (error) {
+        console.error("Failed to create fulfillment with specific location:", error);
+        // Don't fail the order creation if fulfillment assignment fails
+      }
+    }
+    
+    return response;
+  }
+
+  async createFulfillment(orderId: number, locationId: number) {
+    const fulfillmentData = {
+      fulfillment: {
+        location_id: locationId,
+        notify_customer: false,
+        tracking_numbers: [],
+        line_items: [] // Shopify will auto-assign all line items
+      }
+    };
+    
+    return this.makeRequest(`/orders/${orderId}/fulfillments.json`, "POST", fulfillmentData);
   }
 
   async getProducts(limit: number = 50) {
