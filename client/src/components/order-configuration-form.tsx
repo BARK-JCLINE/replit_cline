@@ -274,11 +274,11 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
 
         <Separator />
 
-        {/* Order Details Section */}
+        {/* Tags Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
             <Tags className="text-blue-600 mr-2 h-5 w-5" />
-            Order Details
+            Tags
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
@@ -306,22 +306,61 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               )}
             />
           </div>
-          <FormField
-            control={form.control}
-            name="customTags"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Additional Tags</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Enter custom tags (comma separated)"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Additional Tags Section */}
+          <div>
+            <FormLabel>Additional Tags</FormLabel>
+            <Card className="bg-gray-50 mt-2">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {(config.customTags || []).map((tag, index) => (
+                    <div key={index} className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <Input
+                          value={tag}
+                          onChange={(e) => {
+                            const newTags = [...(config.customTags || [])];
+                            newTags[index] = e.target.value;
+                            const newConfig = { ...config, customTags: newTags };
+                            form.setValue("customTags", newTags);
+                            onChange(newConfig);
+                          }}
+                          placeholder="Enter custom tag..."
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newTags = (config.customTags || []).filter((_, i) => i !== index);
+                          const newConfig = { ...config, customTags: newTags };
+                          form.setValue("customTags", newTags);
+                          onChange(newConfig);
+                        }}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const newTags = [...(config.customTags || []), ""];
+                      const newConfig = { ...config, customTags: newTags };
+                      form.setValue("customTags", newTags);
+                      onChange(newConfig);
+                    }}
+                    className="w-full border-dashed border-2 border-gray-300 hover:border-blue-600 hover:text-blue-600"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Custom Tag
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <Separator />

@@ -43,7 +43,7 @@ export default function OrderGenerator() {
     lineItems: [{ productId: "", quantity: 1 }],
     subscriptionType: "",
     customerSegment: "",
-    customTags: "",
+    customTags: [],
     addressTemplate: "",
     stateProvince: "",
     orderCount: 1,

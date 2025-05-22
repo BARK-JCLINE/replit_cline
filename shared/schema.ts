@@ -10,7 +10,7 @@ export const orderConfigurations = pgTable("order_configurations", {
   lineItems: jsonb("line_items").notNull(),
   subscriptionType: text("subscription_type"),
   customerSegment: text("customer_segment"),
-  customTags: text("custom_tags"),
+  customTags: text("custom_tags").array(),
   addressTemplate: text("address_template"),
   stateProvince: text("state_province"),
   customerFirstName: text("customer_first_name").notNull(),
@@ -48,6 +48,7 @@ export const insertOrderConfigurationSchema = createInsertSchema(orderConfigurat
   customerFirstName: z.string().min(1, "First name is required"),
   customerLastName: z.string().min(1, "Last name is required"),
   customerEmail: z.string().email("Valid email is required"),
+  customTags: z.array(z.string()).optional(),
   orderCount: z.number().min(1).max(100),
   orderDelay: z.number().min(0).max(60),
 }).omit({
