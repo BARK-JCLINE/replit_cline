@@ -41,16 +41,20 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   const deleteBatchesMutation = useMutation({
     mutationFn: async (batchesToDelete: { ids: number[], deleteFromShopify: boolean }) => {
       const results = await Promise.allSettled(
-        batchesToDelete.ids.map(id => 
-          fetch(`/api/batches/${id}`, {
+        batchesToDelete.ids.map(async id => {
+          const response = await fetch(`/api/batches/${id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deleteFromShopify: batchesToDelete.deleteFromShopify })
-          }).then(res => {
-            if (!res.ok) throw new Error(`Failed to delete batch ${id}`);
-            return res.json();
-          })
-        )
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to delete batch ${id}: ${errorText}`);
+          }
+          
+          return response.json();
+        })
       );
       
       const failed = results.filter(r => r.status === 'rejected').length;
@@ -226,7 +230,7 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
               <div className="mb-4 flex items-center gap-2">
                 <Checkbox
                   checked={selectedBatches.length === batches.length}
-                  onCheckedChange={handleSelectAll}
+                  onCheckedChange={() => handleSelectAll()}
                 />
                 <span className="text-sm text-gray-600">
                   Select All ({batches.length} orders)
@@ -335,7 +339,7 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
               <Checkbox
                 id="deleteFromShopify"
                 checked={deleteFromShopify}
-                onCheckedChange={setDeleteFromShopify}
+                onCheckedChange={(checked) => setDeleteFromShopify(checked === true)}
               />
               <label
                 htmlFor="deleteFromShopify"
