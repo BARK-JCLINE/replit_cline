@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertOrderConfigurationSchema, type InsertOrderConfiguration, type LineItem } from "@shared/schema";
@@ -42,6 +42,11 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
     defaultValues: config,
     mode: "onChange",
   });
+
+  // Reset form when config changes (for template loading)
+  useEffect(() => {
+    form.reset(config);
+  }, [config, form]);
 
   const handleFormChange = (data: InsertOrderConfiguration) => {
     onChange(data);
