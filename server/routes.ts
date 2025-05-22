@@ -78,12 +78,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/configurations/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      console.log(`Attempting to delete configuration with ID: ${id}`);
+      
+      // Check if it exists first
+      const existing = await storage.getOrderConfiguration(id);
+      console.log(`Configuration exists:`, existing ? 'YES' : 'NO');
+      
       const success = await storage.deleteOrderConfiguration(id);
+      console.log(`Delete operation result: ${success}`);
+      
       if (!success) {
         return res.status(404).json({ error: "Configuration not found" });
       }
+      
+      // Verify it's gone
+      const afterDelete = await storage.getOrderConfiguration(id);
+      console.log(`Configuration after delete:`, afterDelete ? 'STILL EXISTS' : 'DELETED');
+      
       res.json({ success: true, message: "Template deleted successfully" });
     } catch (error) {
+      console.error('Delete error:', error);
       res.status(500).json({ error: "Failed to delete configuration" });
     }
   });
