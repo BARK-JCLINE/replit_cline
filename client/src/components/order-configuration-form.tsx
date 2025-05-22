@@ -291,47 +291,58 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               name="subscriptionType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Order Type</FormLabel>
-                  <Select onValueChange={(value) => {
-                    field.onChange(value);
-                    
-                    // Auto-add appropriate tags based on order type
-                    let newTags = [...(config.customTags || [])];
-                    
-                    // Remove existing auto-tags first
-                    newTags = newTags.filter(tag => 
-                      tag !== "Ordergroove Trigger Order" && 
-                      tag !== "Ordergroove Subscription Order" && 
-                      tag !== "contains_kibble"
-                    );
-                    
-                    // Add appropriate tag based on selection
-                    if (value === "first-subscription") {
-                      newTags.push("Ordergroove Trigger Order");
-                    } else if (value === "continuity-subscription") {
-                      newTags.push("Ordergroove Subscription Order");
-                    } else if (value === "kibble") {
-                      newTags.push("contains_kibble");
-                    }
-                    
-                    // Update the config with new tags
-                    const newConfig = { ...config, customTags: newTags };
-                    form.setValue("customTags", newTags);
-                    onChange(newConfig);
-                  }} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select order type..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {ORDER_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Order Type (Multi-Select)</FormLabel>
+                  <div className="space-y-2">
+                    {ORDER_TYPE_OPTIONS.map((option) => (
+                      <label key={option.value} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(config.subscriptionType || "").split(",").includes(option.value)}
+                          onChange={(e) => {
+                            const currentValues = (config.subscriptionType || "").split(",").filter(v => v);
+                            let newValues;
+                            
+                            if (e.target.checked) {
+                              newValues = [...currentValues, option.value];
+                            } else {
+                              newValues = currentValues.filter(v => v !== option.value);
+                            }
+                            
+                            const newSubscriptionType = newValues.join(",");
+                            field.onChange(newSubscriptionType);
+                            
+                            // Auto-add appropriate tags based on selected order types
+                            let newTags = [...(config.customTags || [])];
+                            
+                            // Remove existing auto-tags first
+                            newTags = newTags.filter(tag => 
+                              tag !== "Ordergroove Trigger Order" && 
+                              tag !== "Ordergroove Subscription Order" && 
+                              tag !== "contains_kibble"
+                            );
+                            
+                            // Add appropriate tags based on all selections
+                            newValues.forEach(value => {
+                              if (value === "first-subscription") {
+                                newTags.push("Ordergroove Trigger Order");
+                              } else if (value === "continuity-subscription") {
+                                newTags.push("Ordergroove Subscription Order");
+                              } else if (value === "kibble") {
+                                newTags.push("contains_kibble");
+                              }
+                            });
+                            
+                            // Update the config with new tags
+                            const newConfig = { ...config, subscriptionType: newSubscriptionType, customTags: newTags };
+                            form.setValue("customTags", newTags);
+                            onChange(newConfig);
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm">{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
