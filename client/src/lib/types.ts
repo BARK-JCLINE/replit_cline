@@ -4,10 +4,9 @@ export interface DropdownOption {
 }
 
 export const WAREHOUSE_OPTIONS: DropdownOption[] = [
-  { value: "wh-us-east", label: "US East (NYC)" },
-  { value: "wh-us-west", label: "US West (LA)" },
-  { value: "wh-ca-central", label: "Canada Central (Toronto)" },
-  { value: "wh-ca-west", label: "Canada West (Vancouver)" },
+  { value: "om-bbl", label: "OM Fulfillment Service BBL" },
+  { value: "om-bbh", label: "OM Fulfillment Service BBH" },
+  { value: "om-bbp", label: "OM Fulfillment Service BBP" },
 ];
 
 export const ADDRESS_OPTIONS: DropdownOption[] = [
