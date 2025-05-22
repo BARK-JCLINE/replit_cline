@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import type { 
   InsertOrderConfiguration, 
+  OrderConfiguration,
   OrderBatch, 
   OrderCreationProgress 
 } from "@shared/schema";
@@ -75,7 +76,7 @@ export default function OrderGenerator() {
   });
 
   // Fetch existing configurations for duplicate validation
-  const { data: existingConfigurations = [] } = useQuery({
+  const { data: existingConfigurations = [] } = useQuery<OrderConfiguration[]>({
     queryKey: ["/api/configurations"],
   });
 
@@ -245,8 +246,8 @@ export default function OrderGenerator() {
     }
 
     // Check for duplicate names
-    const isDuplicate = (existingConfigurations as any[]).some(
-      (config: any) => config.name.toLowerCase() === templateName.toLowerCase()
+    const isDuplicate = existingConfigurations.some(
+      (config) => config.name.toLowerCase() === templateName.toLowerCase()
     );
 
     if (isDuplicate) {
@@ -339,10 +340,10 @@ export default function OrderGenerator() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-64">
-                        {(existingConfigurations as any[]).length === 0 ? (
+                        {existingConfigurations.length === 0 ? (
                           <div className="p-2 text-sm text-gray-500">No saved templates</div>
                         ) : (
-                          (existingConfigurations as any[]).map((template: any) => (
+                          existingConfigurations.map((template) => (
                             <DropdownMenuItem 
                               key={template.id}
                               onClick={() => handleLoadTemplate(template)}
