@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertOrderConfigurationSchema, insertOrderBatchSchema } from "@shared/schema";
 import { z } from "zod";
+import { shopifyAPI, createShopifyOrderFromConfig } from "./shopify";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Order Configuration routes
@@ -78,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create orders endpoint - simulates Shopify order creation
+  // Create orders endpoint - creates real Shopify orders
   app.post("/api/orders/create", async (req, res) => {
     try {
       const { configurationId, batchId } = req.body;
@@ -96,58 +97,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update batch status to processing
       await storage.updateOrderBatchProgress(batchId, 0, "processing");
 
-      // Simulate order creation process
       const { orderCount, orderDelay } = configuration;
       const createdOrders = [];
 
       for (let i = 0; i < orderCount; i++) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, orderDelay * 1000));
+        try {
+          // Add delay if configured
+          if (orderDelay && orderDelay > 0) {
+            await new Promise(resolve => setTimeout(resolve, orderDelay * 1000));
+          }
 
-        // Simulate order creation (in real implementation, this would call Shopify API)
-        const orderId = `${configuration.orderPrefix}-${Date.now()}-${i + 1}`;
-        const order = {
-          id: orderId,
-          warehouse: configuration.warehouse,
-          address: configuration.address,
-          lineItems: configuration.lineItems,
-          tags: [
-            configuration.subscriptionType,
-            configuration.customerSegment,
-            ...(configuration.customTags ? configuration.customTags.split(',').map(tag => tag.trim()) : [])
-          ].filter(Boolean),
-          address: {
-            template: configuration.addressTemplate,
-            stateProvince: configuration.stateProvince
-          },
-          createdAt: new Date().toISOString()
-        };
+          // Create the Shopify order from configuration
+          const shopifyOrderData = createShopifyOrderFromConfig(configuration);
+          
+          // Try to find actual products by SKU and update line items
+          const updatedLineItems = [];
+          for (const lineItem of shopifyOrderData.line_items) {
+            try {
+              const productInfo = await shopifyAPI.searchProductBySku(lineItem.sku || "");
+              if (productInfo) {
+                updatedLineItems.push({
+                  variant_id: productInfo.variant_id,
+                  product_id: productInfo.product_id,
+                  title: productInfo.title,
+                  quantity: lineItem.quantity,
+                  price: productInfo.price,
+                  sku: lineItem.sku,
+                });
+              } else {
+                // If SKU not found, use the original line item
+                updatedLineItems.push(lineItem);
+              }
+            } catch (skuError) {
+              console.warn(`Could not find product for SKU ${lineItem.sku}:`, skuError);
+              updatedLineItems.push(lineItem);
+            }
+          }
+          
+          shopifyOrderData.line_items = updatedLineItems;
 
-        createdOrders.push(order);
+          // Create the order in Shopify
+          const shopifyResponse = await shopifyAPI.createOrder(shopifyOrderData);
+          
+          const order = {
+            id: shopifyResponse.order.id,
+            shopify_order_number: shopifyResponse.order.order_number,
+            warehouse: configuration.warehouse,
+            address: configuration.address,
+            lineItems: configuration.lineItems,
+            tags: shopifyResponse.order.tags,
+            total_price: shopifyResponse.order.total_price,
+            financial_status: shopifyResponse.order.financial_status,
+            fulfillment_status: shopifyResponse.order.fulfillment_status,
+            createdAt: shopifyResponse.order.created_at,
+            shopify_admin_url: `https://dev-bark-co.myshopify.com/admin/orders/${shopifyResponse.order.id}`
+          };
 
-        // Update progress
-        const progress = Math.round(((i + 1) / orderCount) * 100);
-        await storage.updateOrderBatchProgress(batchId, progress);
+          createdOrders.push(order);
+
+          // Update progress
+          const progress = Math.round(((i + 1) / orderCount) * 100);
+          await storage.updateOrderBatchProgress(batchId, progress);
+
+        } catch (orderError) {
+          console.error(`Failed to create order ${i + 1}:`, orderError);
+          
+          // Add failed order to results
+          createdOrders.push({
+            error: true,
+            message: `Failed to create order ${i + 1}: ${orderError instanceof Error ? orderError.message : 'Unknown error'}`,
+            orderIndex: i + 1
+          });
+
+          // Update progress even for failed orders
+          const progress = Math.round(((i + 1) / orderCount) * 100);
+          await storage.updateOrderBatchProgress(batchId, progress);
+        }
       }
 
       // Complete the batch
-      await storage.completeOrderBatch(batchId, createdOrders);
+      const hasErrors = createdOrders.some((order: any) => order.error);
+      await storage.completeOrderBatch(batchId, createdOrders, hasErrors ? "Some orders failed to create" : undefined);
 
       res.json({ 
         success: true, 
         batchId,
-        ordersCreated: createdOrders.length,
-        orders: createdOrders 
+        ordersCreated: createdOrders.filter((order: any) => !order.error).length,
+        orders: createdOrders,
+        hasErrors
       });
     } catch (error) {
       console.error("Order creation failed:", error);
       
       // Mark batch as failed if batchId exists
       if (req.body.batchId) {
-        await storage.completeOrderBatch(req.body.batchId, [], error.message);
+        await storage.completeOrderBatch(req.body.batchId, [], (error as Error).message);
       }
       
-      res.status(500).json({ error: "Failed to create orders", details: error.message });
+      res.status(500).json({ error: "Failed to create orders", details: (error as Error).message });
+    }
+  });
+
+  // Test Shopify connection endpoint
+  app.get("/api/shopify/test", async (req, res) => {
+    try {
+      const products = await shopifyAPI.getProducts(5);
+      res.json({ 
+        success: true, 
+        message: "Successfully connected to Shopify!", 
+        productCount: products.products?.length || 0,
+        store: "dev-bark-co.myshopify.com"
+      });
+    } catch (error) {
+      console.error("Shopify connection test failed:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to connect to Shopify", 
+        details: (error as Error).message 
+      });
+    }
+  });
+
+  // Get products from Shopify
+  app.get("/api/shopify/products", async (req, res) => {
+    try {
+      const products = await shopifyAPI.getProducts(50);
+      res.json(products);
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+      res.status(500).json({ error: "Failed to fetch products", details: (error as Error).message });
     }
   });
 
