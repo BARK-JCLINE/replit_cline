@@ -159,6 +159,28 @@ export default function OrderGenerator() {
     },
   });
 
+  // Delete template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/configurations/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurations"] });
+      toast({
+        title: "Template Deleted!",
+        description: "Template has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete template. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Create orders mutation
   const createOrdersMutation = useMutation({
     mutationFn: async (config: InsertOrderConfiguration) => {
@@ -403,14 +425,34 @@ export default function OrderGenerator() {
                           existingConfigurations.map((template) => (
                             <DropdownMenuItem 
                               key={template.id}
-                              onClick={() => handleLoadTemplate(template)}
-                              className="cursor-pointer"
+                              className="cursor-pointer flex items-center justify-between p-2"
+                              asChild
                             >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{template.name}</span>
-                                <span className="text-xs text-gray-500">
-                                  ID: {template.id} • {template.warehouse} • {template.address}
-                                </span>
+                              <div>
+                                <div 
+                                  className="flex-1"
+                                  onClick={() => handleLoadTemplate(template)}
+                                >
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{template.name}</span>
+                                    <span className="text-xs text-gray-500">
+                                      ID: {template.id} • {template.warehouse} • {template.address}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Are you sure you want to delete the template "${template.name}"?`)) {
+                                      deleteTemplateMutation.mutate(template.id);
+                                    }
+                                  }}
+                                >
+                                  🗑️
+                                </Button>
                               </div>
                             </DropdownMenuItem>
                           ))
