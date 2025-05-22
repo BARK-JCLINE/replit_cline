@@ -90,6 +90,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getOrderConfiguration(id);
       console.log(`Configuration exists:`, existing ? 'YES' : 'NO');
       
+      // First check if there are any batches using this configuration
+      const allBatches = await storage.getAllOrderBatches();
+      const linkedBatches = allBatches.filter(batch => batch.configurationId === id);
+      
+      if (linkedBatches.length > 0) {
+        // Update batches to remove the configuration reference instead of deleting
+        for (const batch of linkedBatches) {
+          await storage.updateOrderBatch(batch.id, { configurationId: null });
+        }
+      }
+      
       const success = await storage.deleteOrderConfiguration(id);
       console.log(`Delete operation result: ${success}`);
       
