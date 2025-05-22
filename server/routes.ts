@@ -163,15 +163,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Use either saved configuration or direct configuration data
       let configuration;
-      if (configurationId) {
+      if (directConfig) {
+        console.log("Using direct configuration data");
+        configuration = directConfig;
+      } else if (configurationId) {
         console.log("Using saved configuration with ID:", configurationId);
         configuration = await storage.getOrderConfiguration(configurationId);
         if (!configuration) {
           return res.status(404).json({ error: "Configuration not found" });
         }
-      } else if (directConfig) {
-        console.log("Using direct configuration data");
-        configuration = directConfig;
       } else {
         console.log("No configuration provided - neither configurationId nor configuration found");
         return res.status(400).json({ error: "Either configurationId or configuration data required" });
