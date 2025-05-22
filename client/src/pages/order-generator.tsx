@@ -163,7 +163,7 @@ export default function OrderGenerator() {
   const deleteTemplateMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await apiRequest("DELETE", `/api/configurations/${id}`);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/configurations"] });
@@ -173,6 +173,7 @@ export default function OrderGenerator() {
       });
     },
     onError: (error) => {
+      console.error("Delete error:", error);
       toast({
         title: "Delete Failed",
         description: "Failed to delete template. Please try again.",
