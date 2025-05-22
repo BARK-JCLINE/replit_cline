@@ -200,12 +200,18 @@ export default function OrderGenerator() {
   // Create orders mutation
   const createOrdersMutation = useMutation({
     mutationFn: async (config: InsertOrderConfiguration) => {
-      // First save the configuration
-      const configResponse = await apiRequest("POST", "/api/configurations", config);
+      // Create batch with a unique temporary name for order creation
+      const batchId = `BATCH-${Date.now()}`;
+      const tempConfig = {
+        ...config,
+        name: `Temp-Order-${Date.now()}` // Use unique temp name to avoid duplicates
+      };
+      
+      // Save temporary configuration for order creation
+      const configResponse = await apiRequest("POST", "/api/configurations", tempConfig);
       const savedConfig = await configResponse.json();
 
       // Create batch
-      const batchId = `BATCH-${Date.now()}`;
       const batchResponse = await apiRequest("POST", "/api/batches", {
         batchId,
         configurationId: savedConfig.id,
