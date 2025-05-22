@@ -149,9 +149,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create orders endpoint - creates real Shopify orders
   app.post("/api/orders/create", async (req, res) => {
     try {
+      console.log("Full request body:", JSON.stringify(req.body, null, 2));
+      
       const { configurationId, batchId, configuration: directConfig } = req.body;
       
-      console.log("Order creation request:", { configurationId, batchId, hasDirectConfig: !!directConfig });
+      console.log("Extracted values:", { 
+        configurationId, 
+        batchId, 
+        hasDirectConfig: !!directConfig,
+        directConfigKeys: directConfig ? Object.keys(directConfig) : null
+      });
       
       // Use either saved configuration or direct configuration data
       let configuration;
@@ -165,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Using direct configuration data");
         configuration = directConfig;
       } else {
-        console.log("No configuration provided");
+        console.log("No configuration provided - neither configurationId nor configuration found");
         return res.status(400).json({ error: "Either configurationId or configuration data required" });
       }
 
