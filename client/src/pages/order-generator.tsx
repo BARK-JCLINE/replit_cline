@@ -19,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   ShoppingCart, 
   HelpCircle, 
@@ -239,7 +245,7 @@ export default function OrderGenerator() {
     }
 
     // Check for duplicate names
-    const isDuplicate = existingConfigurations.some(
+    const isDuplicate = (existingConfigurations as any[]).some(
       (config: any) => config.name.toLowerCase() === templateName.toLowerCase()
     );
 
@@ -257,6 +263,17 @@ export default function OrderGenerator() {
     saveTemplateMutation.mutate(configToSave);
     setShowSaveDialog(false);
     setTemplateName("");
+  };
+
+  const handleLoadTemplate = (template: any) => {
+    setOrderConfig({
+      ...template,
+      customTags: template.customTags || [],
+    });
+    toast({
+      title: "Template Loaded!",
+      description: `Configuration "${template.name}" has been loaded successfully.`,
+    });
   };
 
   const handleExportConfig = () => {
@@ -313,19 +330,49 @@ export default function OrderGenerator() {
                   <h2 className="text-xl font-semibold text-gray-900">
                     Order Configuration
                   </h2>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleSaveTemplate}
-                    disabled={saveTemplateMutation.isPending}
-                  >
-                    {saveTemplateMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4 mr-2" />
-                    )}
-                    Save Template
-                  </Button>
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Download className="h-4 w-4 mr-2" />
+                          Load Template
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-64">
+                        {(existingConfigurations as any[]).length === 0 ? (
+                          <div className="p-2 text-sm text-gray-500">No saved templates</div>
+                        ) : (
+                          (existingConfigurations as any[]).map((template: any) => (
+                            <DropdownMenuItem 
+                              key={template.id}
+                              onClick={() => handleLoadTemplate(template)}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{template.name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {template.warehouse} • {template.address}
+                                </span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleSaveTemplate}
+                      disabled={saveTemplateMutation.isPending}
+                    >
+                      {saveTemplateMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      Save Template
+                    </Button>
+                  </div>
                 </div>
                 
                 <OrderConfigurationForm
