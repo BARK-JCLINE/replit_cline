@@ -42,23 +42,32 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
     mutationFn: async (batchesToDelete: { ids: number[], deleteFromShopify: boolean }) => {
       const results = await Promise.allSettled(
         batchesToDelete.ids.map(async id => {
-          const response = await fetch(`/api/batches/${id}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deleteFromShopify: batchesToDelete.deleteFromShopify })
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to delete batch ${id}: ${errorText}`);
+          try {
+            const response = await fetch(`/api/batches/${id}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ deleteFromShopify: batchesToDelete.deleteFromShopify })
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`Failed to delete batch ${id}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log(`Successfully deleted batch ${id}:`, result);
+            return result;
+          } catch (error) {
+            console.error(`Error deleting batch ${id}:`, error);
+            throw error;
           }
-          
-          return response.json();
         })
       );
       
       const failed = results.filter(r => r.status === 'rejected').length;
       const succeeded = results.filter(r => r.status === 'fulfilled').length;
+      
+      console.log('Deletion results:', { results, failed, succeeded });
       
       return { succeeded, failed };
     },
