@@ -149,29 +149,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create orders endpoint - creates real Shopify orders
   app.post("/api/orders/create", async (req, res) => {
     try {
-      const { configurationId, batchId, configuration: directConfig } = req.body;
+      const { batchId, configuration } = req.body;
       
-      // Quick test to see what we're receiving
-      if (!directConfig && !configurationId) {
+      // For direct order creation, we expect configuration data to be provided
+      if (!configuration) {
         return res.status(400).json({ 
-          error: "Missing configuration data",
-          received: Object.keys(req.body),
-          hasDirectConfig: !!directConfig,
-          hasConfigId: !!configurationId
+          error: "Configuration data required",
+          message: "Order creation requires configuration data to be provided directly"
         });
       }
       
-      // Use direct configuration data if provided, otherwise look up saved configuration
-      let configuration;
-      if (directConfig) {
-        configuration = directConfig;
-      } else if (configurationId) {
-        configuration = await storage.getOrderConfiguration(configurationId);
-        if (!configuration) {
-          return res.status(404).json({ error: "Configuration not found" });
-        }
-      } else {
-        return res.status(400).json({ error: "Either configurationId or configuration data required" });
+      if (!batchId) {
+        return res.status(400).json({ 
+          error: "Batch ID required",
+          message: "Order creation requires a valid batch ID"
+        });
       }
 
       const batch = await storage.getOrderBatchByBatchId(batchId);
