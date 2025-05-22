@@ -72,6 +72,58 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
   return (
     <Form {...form}>
       <form onChange={() => handleFormChange(form.getValues())} className="space-y-8">
+        {/* Customer Details Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900 flex items-center">
+            <User className="text-blue-600 mr-2 h-5 w-5" />
+            Customer Details
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="customerFirstName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>First Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="John" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="customerLastName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Last Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <FormField
+            control={form.control}
+            name="customerEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email Address</FormLabel>
+                <FormControl>
+                  <Input placeholder="john.doe@example.com" type="email" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         {/* Warehouse & Location Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
@@ -303,19 +355,7 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               )}
             />
             
-            <FormField
-              control={form.control}
-              name="orderPrefix"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Order Prefix</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
             
             <FormField
               control={form.control}

@@ -37,7 +37,9 @@ export default function OrderGenerator() {
     addressTemplate: "",
     stateProvince: "",
     orderCount: 1,
-    orderPrefix: "TEST",
+    customerFirstName: "",
+    customerLastName: "",
+    customerEmail: "",
     orderDelay: 0,
   });
 

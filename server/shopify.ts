@@ -107,16 +107,45 @@ export class ShopifyAPI {
     
     return null;
   }
+
+  async getLastOrderNumber() {
+    try {
+      // Get the most recent orders to find the last BARK order number
+      const orders = await this.makeRequest("/orders.json?limit=50&status=any");
+      
+      let lastBarkNumber = 271007; // Default starting number if no BARK orders found
+      
+      for (const order of orders.orders) {
+        if (order.name && order.name.startsWith("BARK-")) {
+          const numberPart = order.name.replace("BARK-", "");
+          const orderNumber = parseInt(numberPart);
+          if (!isNaN(orderNumber) && orderNumber > lastBarkNumber) {
+            lastBarkNumber = orderNumber;
+          }
+        }
+      }
+      
+      return lastBarkNumber;
+    } catch (error) {
+      console.error("Failed to get last order number:", error);
+      // Return default starting number if API call fails
+      return 271007;
+    }
+  }
 }
 
 export function createShopifyOrderFromConfig(config: OrderConfiguration): ShopifyOrder {
-  // Map addresses
+  // Map addresses and use customer details from config
   const getAddressFromConfig = (addressKey: string): ShopifyAddress => {
+    const baseAddress = {
+      first_name: config.customerFirstName,
+      last_name: config.customerLastName,
+    };
+
     switch (addressKey) {
       case "us-columbus":
         return {
-          first_name: "Test",
-          last_name: "Customer",
+          ...baseAddress,
           address1: "500 W Broad St",
           city: "Columbus",
           province: "OH",
@@ -126,8 +155,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
         };
       case "ca-ottawa":
         return {
-          first_name: "Test",
-          last_name: "Customer",
+          ...baseAddress,
           address1: "123 Maple Grove Rd",
           city: "Ottawa",
           province: "ON",
@@ -137,8 +165,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
         };
       default:
         return {
-          first_name: "Test",
-          last_name: "Customer",
+          ...baseAddress,
           address1: "123 Test Street",
           city: "Test City",
           province: "Test Province",
@@ -150,8 +177,8 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
 
   const address = getAddressFromConfig(config.address);
   
-  // Convert line items - for now we'll use SKU as title and set a default price
-  const lineItems: ShopifyLineItem[] = config.lineItems.map((item) => ({
+  // Convert line items using customer's line items data
+  const lineItems: ShopifyLineItem[] = (config.lineItems as any[]).map((item: any) => ({
     title: `Product ${item.productId}`,
     quantity: item.quantity,
     price: "10.00", // Default price - will be updated when we find actual product
@@ -169,9 +196,9 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   return {
     line_items: lineItems,
     customer: {
-      first_name: address.first_name,
-      last_name: address.last_name,
-      email: "test@example.com",
+      first_name: config.customerFirstName,
+      last_name: config.customerLastName,
+      email: config.customerEmail,
     },
     billing_address: address,
     shipping_address: address,

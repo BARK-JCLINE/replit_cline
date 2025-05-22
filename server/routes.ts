@@ -229,6 +229,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get next order number
+  app.get("/api/shopify/next-order-number", async (req, res) => {
+    try {
+      const lastOrderNumber = await shopifyAPI.getLastOrderNumber();
+      const nextOrderNumber = lastOrderNumber + 1;
+      res.json({ 
+        nextOrderNumber,
+        formattedOrderNumber: `BARK-${nextOrderNumber}`,
+        lastOrderNumber 
+      });
+    } catch (error) {
+      console.error("Failed to get next order number:", error);
+      res.status(500).json({ error: "Failed to get next order number", details: (error as Error).message });
+    }
+  });
+
   // Validation endpoint
   app.post("/api/validate-configuration", async (req, res) => {
     try {
