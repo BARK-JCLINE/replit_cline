@@ -320,6 +320,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Delete request for batch ${batchId}, deleteFromShopify: ${deleteFromShopify}`);
 
+      // First, let's see what batches actually exist
+      const allBatches = await storage.getAllOrderBatches();
+      console.log(`All batches in storage:`, allBatches.map(b => ({ id: b.id, batchId: b.batchId })));
+
       // Get the batch to access created orders
       const batch = await storage.getOrderBatch(batchId);
       if (!batch) {
