@@ -76,54 +76,19 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    try {
-      console.log("🏭 Creating draft order with location_id:", orderData.location_id);
-      
-      // Step 1: Create as draft order first
-      const draftOrderData = {
-        ...orderData,
-        // Remove location_id from main order and save it for later
-      };
-      const savedLocationId = orderData.location_id;
-      delete draftOrderData.location_id;
-      
-      console.log("📝 Creating draft order first...");
-      const draftResponse = await this.makeRequest("/draft_orders.json", "POST", { 
-        draft_order: draftOrderData 
-      });
-      
-      console.log("✅ Draft order created:", draftResponse.draft_order.id);
-      
-      // Step 2: Complete the draft order with location specified
-      console.log("🏭 Completing draft with location_id:", savedLocationId);
-      
-      // Try different completion approach - complete first, then assign location
-      const finalResponse = await this.makeRequest(
-        `/draft_orders/${draftResponse.draft_order.id}/complete.json`, 
-        "POST",
-        {}
-      );
-      
-      console.log("✅ Draft completed, now trying to assign location via fulfillment");
-      
-      // After completion, immediately create fulfillment with location
-      if (savedLocationId && finalResponse.order) {
-        try {
-          await this.createFulfillment(finalResponse.order.id, savedLocationId);
-          console.log("✅ Fulfillment with location created successfully");
-        } catch (fulfillmentError) {
-          console.error("❌ Fulfillment assignment failed:", fulfillmentError);
-        }
-      }
-      
-      console.log("🎉 Draft order completed as real order");
-      return finalResponse;
-      
-    } catch (error) {
-      console.error("❌ Draft order process failed, falling back to direct order creation:", error);
-      // Fallback to direct order creation if draft fails
-      return this.makeRequest("/orders.json", "POST", { order: orderData });
-    }
+    console.log("🏭 Creating order with location_id:", orderData.location_id);
+    console.log("📦 Skipping draft approach, creating direct order with assigned_location_id");
+    
+    // Create a modified order data that uses assigned_location_id instead
+    const modifiedOrderData = {
+      ...orderData,
+      assigned_location_id: orderData.location_id
+    };
+    delete modifiedOrderData.location_id;
+    
+    console.log("🎯 Order data with assigned_location_id:", modifiedOrderData.assigned_location_id);
+    
+    return this.makeRequest("/orders.json", "POST", { order: modifiedOrderData });
   }
 
   async createFulfillment(orderId: number, locationId: number) {
