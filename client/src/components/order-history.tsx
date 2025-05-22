@@ -222,9 +222,21 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
           </div>
         ) : (
           <div className="overflow-x-auto">
+            {batches.length > 0 && (
+              <div className="mb-4 flex items-center gap-2">
+                <Checkbox
+                  checked={selectedBatches.length === batches.length}
+                  onCheckedChange={handleSelectAll}
+                />
+                <span className="text-sm text-gray-600">
+                  Select All ({batches.length} orders)
+                </span>
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
+                  <TableHead className="w-12">Select</TableHead>
                   <TableHead className="font-medium text-gray-700">Timestamp</TableHead>
                   <TableHead className="font-medium text-gray-700">Shopify Order Name</TableHead>
                   <TableHead className="font-medium text-gray-700">Shopify ID</TableHead>
@@ -241,6 +253,12 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                   
                   return (
                     <TableRow key={batch.id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedBatches.includes(batch.id)}
+                          onCheckedChange={() => handleBatchSelect(batch.id)}
+                        />
+                      </TableCell>
                       <TableCell className="text-gray-900">
                         {formatTimestamp(batch.createdAt)}
                       </TableCell>
@@ -301,6 +319,58 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
           </div>
         )}
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Selected Orders</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedBatches.length} selected order{selectedBatches.length !== 1 ? 's' : ''}? 
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="deleteFromShopify"
+                checked={deleteFromShopify}
+                onCheckedChange={setDeleteFromShopify}
+              />
+              <label
+                htmlFor="deleteFromShopify"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Also delete orders from Shopify store
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {deleteFromShopify 
+                ? "⚠️ This will permanently remove the orders from your Shopify store and cannot be undone."
+                : "Orders will only be removed from this tool's history, but will remain in your Shopify store."
+              }
+            </p>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeleteFromShopify(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+              disabled={deleteBatchesMutation.isPending}
+            >
+              {deleteBatchesMutation.isPending ? "Deleting..." : "Delete Orders"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
