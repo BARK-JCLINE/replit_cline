@@ -26,10 +26,7 @@ import {
   WAREHOUSE_OPTIONS,
   ADDRESS_OPTIONS,
   PRODUCT_OPTIONS,
-  SUBSCRIPTION_TYPE_OPTIONS,
-  CUSTOMER_SEGMENT_OPTIONS,
-  ADDRESS_TEMPLATE_OPTIONS,
-  STATE_PROVINCE_OPTIONS,
+  ORDER_TYPE_OPTIONS,
   ORDER_DELAY_OPTIONS,
 } from "@/lib/types";
 
@@ -147,21 +144,12 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                 {config.lineItems.map((item, index) => (
                   <div key={index} className="flex items-center space-x-4">
                     <div className="flex-1">
-                      <Select
+                      <Input
                         value={item.productId}
-                        onValueChange={(value) => updateLineItem(index, { productId: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PRODUCT_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(e) => updateLineItem(index, { productId: e.target.value })}
+                        placeholder="Enter SKU or product ID..."
+                        className="font-mono"
+                      />
                     </div>
                     <div className="w-20">
                       <Input
@@ -202,11 +190,11 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
 
         <Separator />
 
-        {/* Shopify Tags Section */}
+        {/* Order Details Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
             <Tags className="text-blue-600 mr-2 h-5 w-5" />
-            Shopify Tags & Classification
+            Order Details
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
@@ -214,40 +202,15 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               name="subscriptionType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Subscription Type</FormLabel>
+                  <FormLabel>Order Type</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type..." />
+                        <SelectValue placeholder="Select order type..." />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {SUBSCRIPTION_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="customerSegment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Customer Segment</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select segment..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {CUSTOMER_SEGMENT_OPTIONS.map((option) => (
+                      {ORDER_TYPE_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -279,66 +242,7 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
 
         <Separator />
 
-        {/* Address Configuration */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900 flex items-center">
-            <MapPin className="text-blue-600 mr-2 h-5 w-5" />
-            Shipping Address
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="addressTemplate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address Template</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select template..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {ADDRESS_TEMPLATE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="stateProvince"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>State/Province</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select state/province..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {STATE_PROVINCE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
 
-        <Separator />
 
         {/* Bulk Generation Section */}
         <div className="space-y-4">

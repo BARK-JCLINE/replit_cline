@@ -4,7 +4,7 @@ import type { InsertOrderConfiguration } from "@shared/schema";
 import {
   WAREHOUSE_OPTIONS,
   ADDRESS_OPTIONS,
-  SUBSCRIPTION_TYPE_OPTIONS,
+  ORDER_TYPE_OPTIONS,
 } from "@/lib/types";
 
 interface OrderPreviewProps {
@@ -45,9 +45,9 @@ export function OrderPreview({ config }: OrderPreviewProps) {
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Sub Type:</span>
+            <span className="text-gray-600">Order Type:</span>
             <span className="font-medium">
-              {getOptionLabel(SUBSCRIPTION_TYPE_OPTIONS, config.subscriptionType || "")}
+              {getOptionLabel(ORDER_TYPE_OPTIONS, config.subscriptionType || "")}
             </span>
           </div>
           <div className="flex justify-between">

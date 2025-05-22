@@ -21,10 +21,11 @@ export const PRODUCT_OPTIONS: DropdownOption[] = [
   { value: "prod-101", label: "Test Subscription Box (SKU: SUB-001)" },
 ];
 
-export const SUBSCRIPTION_TYPE_OPTIONS: DropdownOption[] = [
-  { value: "first-sub-box", label: "First Sub Box" },
-  { value: "non-first-sub-box", label: "Non-First Sub Box" },
-  { value: "one-time", label: "One-Time Purchase" },
+export const ORDER_TYPE_OPTIONS: DropdownOption[] = [
+  { value: "first-subscription", label: "First Subscription" },
+  { value: "continuity-subscription", label: "Continuity Subscription" },
+  { value: "kibble", label: "Kibble" },
+  { value: "product", label: "Product" },
 ];
 
 export const CUSTOMER_SEGMENT_OPTIONS: DropdownOption[] = [
