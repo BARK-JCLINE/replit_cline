@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   ShoppingCart, 
   HelpCircle, 
@@ -69,6 +70,7 @@ export default function OrderGenerator() {
   });
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [selectedExistingTemplate, setSelectedExistingTemplate] = useState<number | null>(null);
 
   // Fetch order batches for history
   const { data: orderBatches = [], refetch: refetchBatches } = useQuery<OrderBatch[]>({
@@ -120,6 +122,7 @@ export default function OrderGenerator() {
       return response.json();
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurations"] });
       toast({
         title: "Template Saved!",
         description: `Configuration "${data.name}" has been saved as a reusable template.`,
@@ -129,6 +132,28 @@ export default function OrderGenerator() {
       toast({
         title: "Save Failed",
         description: "Failed to save configuration template. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update template mutation
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, config }: { id: number; config: InsertOrderConfiguration }) => {
+      const response = await apiRequest("PUT", `/api/configurations/${id}`, config);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurations"] });
+      toast({
+        title: "Template Updated!",
+        description: `Template "${data.name}" has been updated successfully.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update template. Please try again.",
         variant: "destructive",
       });
     },
@@ -232,38 +257,48 @@ export default function OrderGenerator() {
   const handleSaveTemplate = () => {
     setShowSaveDialog(true);
     setTemplateName(orderConfig.name || "");
+    setSelectedExistingTemplate(null);
   };
 
   const handleConfirmSave = () => {
-    // Validate template name
-    if (!templateName.trim()) {
+    // Validate template name or selection
+    if (!selectedExistingTemplate && !templateName.trim()) {
       toast({
         title: "Template Name Required",
-        description: "Please enter a name for your template.",
+        description: "Please enter a name for your template or select an existing one to update.",
         variant: "destructive",
       });
       return;
     }
 
-    // Check for duplicate names
-    const isDuplicate = existingConfigurations.some(
-      (config) => config.name.toLowerCase() === templateName.toLowerCase()
-    );
+    if (selectedExistingTemplate) {
+      // Update existing template
+      const existingTemplate = existingConfigurations.find(t => t.id === selectedExistingTemplate);
+      const configToSave = { ...orderConfig, name: existingTemplate?.name || templateName };
+      updateTemplateMutation.mutate({ id: selectedExistingTemplate, config: configToSave });
+    } else {
+      // Check for duplicate names when creating new template
+      const isDuplicate = existingConfigurations.some(
+        (config) => config.name.toLowerCase() === templateName.toLowerCase()
+      );
 
-    if (isDuplicate) {
-      toast({
-        title: "Template Name Already Exists",
-        description: "A template with this name already exists. Please choose a different name.",
-        variant: "destructive",
-      });
-      return;
+      if (isDuplicate) {
+        toast({
+          title: "Template Name Already Exists",
+          description: "A template with this name already exists. Please choose a different name or select it to update.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Save new template
+      const configToSave = { ...orderConfig, name: templateName };
+      saveTemplateMutation.mutate(configToSave);
     }
-
-    // Save the template with the new name
-    const configToSave = { ...orderConfig, name: templateName };
-    saveTemplateMutation.mutate(configToSave);
+    
     setShowSaveDialog(false);
     setTemplateName("");
+    setSelectedExistingTemplate(null);
   };
 
   const handleLoadTemplate = (template: OrderConfiguration) => {
@@ -470,24 +505,66 @@ export default function OrderGenerator() {
 
       {/* Save Template Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Save Template</DialogTitle>
             <DialogDescription>
-              Enter a name for your order configuration template. This will allow you to quickly reuse this setup for future orders.
+              Choose whether to create a new template or update an existing one.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="template-name">Template Name</Label>
-              <Input
-                id="template-name"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="e.g., BB Subscription - US Orders"
-                autoFocus
-              />
-            </div>
+            <RadioGroup 
+              value={selectedExistingTemplate ? "update" : "new"} 
+              onValueChange={(value) => {
+                if (value === "new") {
+                  setSelectedExistingTemplate(null);
+                } else {
+                  if (existingConfigurations.length > 0) {
+                    setSelectedExistingTemplate(existingConfigurations[0].id);
+                  }
+                }
+              }}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="new" id="new" />
+                <Label htmlFor="new">Create new template</Label>
+              </div>
+              {existingConfigurations.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="update" id="update" />
+                  <Label htmlFor="update">Update existing template</Label>
+                </div>
+              )}
+            </RadioGroup>
+
+            {!selectedExistingTemplate ? (
+              <div className="space-y-2">
+                <Label htmlFor="template-name">Template Name</Label>
+                <Input
+                  id="template-name"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="e.g., BB Subscription - US Orders"
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="existing-template">Select Template to Update</Label>
+                <select 
+                  id="existing-template"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  value={selectedExistingTemplate || ""}
+                  onChange={(e) => setSelectedExistingTemplate(Number(e.target.value))}
+                >
+                  {existingConfigurations.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} ({template.warehouse} • {template.address})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button 
@@ -495,18 +572,19 @@ export default function OrderGenerator() {
               onClick={() => {
                 setShowSaveDialog(false);
                 setTemplateName("");
+                setSelectedExistingTemplate(null);
               }}
             >
               Cancel
             </Button>
             <Button 
               onClick={handleConfirmSave}
-              disabled={saveTemplateMutation.isPending}
+              disabled={saveTemplateMutation.isPending || updateTemplateMutation.isPending}
             >
-              {saveTemplateMutation.isPending ? (
+              {(saveTemplateMutation.isPending || updateTemplateMutation.isPending) ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
-              Save Template
+              {selectedExistingTemplate ? "Update Template" : "Save Template"}
             </Button>
           </DialogFooter>
         </DialogContent>
