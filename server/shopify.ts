@@ -96,19 +96,25 @@ export class ShopifyAPI {
       
       // Step 2: Complete the draft order with location specified
       console.log("🏭 Completing draft with location_id:", savedLocationId);
-      const completeData: any = {
-        payment_pending: false,
-        payment_gateway_id: null
-      };
-      if (savedLocationId) {
-        completeData.location_id = savedLocationId;
-      }
       
+      // Try different completion approach - complete first, then assign location
       const finalResponse = await this.makeRequest(
         `/draft_orders/${draftResponse.draft_order.id}/complete.json`, 
         "POST",
-        completeData
+        {}
       );
+      
+      console.log("✅ Draft completed, now trying to assign location via fulfillment");
+      
+      // After completion, immediately create fulfillment with location
+      if (savedLocationId && finalResponse.order) {
+        try {
+          await this.createFulfillment(finalResponse.order.id, savedLocationId);
+          console.log("✅ Fulfillment with location created successfully");
+        } catch (fulfillmentError) {
+          console.error("❌ Fulfillment assignment failed:", fulfillmentError);
+        }
+      }
       
       console.log("🎉 Draft order completed as real order");
       return finalResponse;
