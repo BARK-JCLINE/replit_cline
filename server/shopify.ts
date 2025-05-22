@@ -407,11 +407,12 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   };
 }
 
-function getFulfillmentServiceFromWarehouse(warehouse: string): string {
-  const fulfillmentServiceMap: Record<string, string> = {
-    "om-bbl": "om-fulfillment-service-bbl",
-    "om-bbh": "om-fulfillment-service-bbh", 
-    "om-bbp": "om-fulfillment-service-bbp"
+function getFulfillmentServiceFromWarehouse(warehouse: string): number | string {
+  // Use the actual fulfillment service IDs from your Shopify store
+  const fulfillmentServiceMap: Record<string, number> = {
+    "om-bbl": 67412590867, // OM Fulfillment Service BBL
+    "om-bbh": 69071995155, // OM Fulfillment Service BBH
+    "om-bbp": 68309319955  // OM Fulfillment Service BBP
   };
   return fulfillmentServiceMap[warehouse] || "manual";
 }
