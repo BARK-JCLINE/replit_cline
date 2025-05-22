@@ -318,18 +318,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const batchId = parseInt(req.params.id);
       const { deleteFromShopify } = req.body;
 
+      console.log(`Delete request for batch ${batchId}, deleteFromShopify: ${deleteFromShopify}`);
+
       // Get the batch to access created orders
       const batch = await storage.getOrderBatch(batchId);
       if (!batch) {
+        console.log(`Batch ${batchId} not found in storage`);
         return res.status(404).json({ error: "Batch not found" });
       }
 
+      console.log(`Found batch ${batchId}:`, batch);
+
       // If deleteFromShopify is true, try to delete orders from Shopify
       if (deleteFromShopify && Array.isArray(batch.createdOrders)) {
+        console.log(`Attempting to delete ${batch.createdOrders.length} orders from Shopify`);
         for (const order of batch.createdOrders) {
           try {
             if (order.id) {
               await shopifyAPI.deleteOrder(order.id);
+              console.log(`Deleted order ${order.id} from Shopify`);
             }
           } catch (shopifyError) {
             console.warn(`Failed to delete order ${order.id} from Shopify:`, shopifyError);
@@ -339,7 +346,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete the batch from our storage
+      console.log(`Deleting batch ${batchId} from storage`);
       const deleted = await storage.deleteOrderBatch(batchId);
+      console.log(`Batch deletion result:`, deleted);
+      
       if (!deleted) {
         return res.status(404).json({ error: "Failed to delete batch" });
       }
