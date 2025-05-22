@@ -312,6 +312,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get Shopify locations for warehouse mapping
+  app.get("/api/shopify/locations", async (req, res) => {
+    try {
+      const locations = await shopifyAPI.getLocations();
+      res.json(locations);
+    } catch (error) {
+      console.error("Failed to fetch locations:", error);
+      res.status(500).json({ error: "Failed to fetch locations", details: (error as Error).message });
+    }
+  });
+
   // Delete batch endpoint
   app.delete("/api/batches/:id", async (req, res) => {
     const batchId = parseInt(req.params.id);

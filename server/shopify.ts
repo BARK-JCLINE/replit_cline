@@ -143,14 +143,18 @@ export class ShopifyAPI {
       throw new Error("Failed to delete order from Shopify");
     }
   }
+
+  async getLocations() {
+    return this.makeRequest("/locations.json");
+  }
 }
 
 // Map warehouse codes to Shopify location IDs
 function getLocationIdFromWarehouse(warehouse: string): number | undefined {
   const warehouseMap: Record<string, number> = {
-    "om-bbl": 0, // BBL location ID - needs to be set to actual Shopify location ID
-    "om-bbh": 0, // BBH location ID - needs to be set to actual Shopify location ID  
-    "om-bbp": 0, // BBP location ID - needs to be set to actual Shopify location ID
+    "om-bbl": 96010764563, // OM Fulfillment Service BBL
+    "om-bbh": 105521053971, // OM Fulfillment Service BBH
+    "om-bbp": 101212520723, // OM Fulfillment Service BBP
   };
   
   return warehouseMap[warehouse];
@@ -215,6 +219,9 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   ];
   const tags = allTags.join(", ");
 
+  // Get the Shopify location ID for the selected warehouse
+  const locationId = getLocationIdFromWarehouse(config.warehouse);
+
   return {
     line_items: lineItems,
     customer: {
@@ -228,6 +235,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     note: `Created with Replit tool - Warehouse: ${config.warehouse.toUpperCase()}`,
     source_name: "QA Test Generator",
     financial_status: "paid",
+    location_id: locationId, // This will set the fulfillment warehouse!
   };
 }
 
