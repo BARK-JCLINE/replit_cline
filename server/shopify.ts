@@ -407,4 +407,13 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   };
 }
 
+function getFulfillmentServiceFromWarehouse(warehouse: string): string {
+  const fulfillmentServiceMap: Record<string, string> = {
+    "om-bbl": "om-fulfillment-service-bbl",
+    "om-bbh": "om-fulfillment-service-bbh", 
+    "om-bbp": "om-fulfillment-service-bbp"
+  };
+  return fulfillmentServiceMap[warehouse] || "manual";
+}
+
 export const shopifyAPI = new ShopifyAPI();
