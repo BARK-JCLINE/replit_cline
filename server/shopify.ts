@@ -213,7 +213,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     billing_address: address,
     shipping_address: address,
     tags,
-    note: "Created with Replit tool",
+    note: `Created with Replit tool - Warehouse: ${config.warehouse.toUpperCase()}`,
     source_name: "QA Test Generator",
     financial_status: "paid",
   };
