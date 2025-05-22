@@ -292,7 +292,33 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Order Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(value) => {
+                    field.onChange(value);
+                    
+                    // Auto-add appropriate tags based on order type
+                    let newTags = [...(config.customTags || [])];
+                    
+                    // Remove existing auto-tags first
+                    newTags = newTags.filter(tag => 
+                      tag !== "Ordergroove Trigger Order" && 
+                      tag !== "Ordergroove Subscription Order" && 
+                      tag !== "contains_kibble"
+                    );
+                    
+                    // Add appropriate tag based on selection
+                    if (value === "first-subscription") {
+                      newTags.push("Ordergroove Trigger Order");
+                    } else if (value === "continuity-subscription") {
+                      newTags.push("Ordergroove Subscription Order");
+                    } else if (value === "kibble") {
+                      newTags.push("contains_kibble");
+                    }
+                    
+                    // Update the config with new tags
+                    const newConfig = { ...config, customTags: newTags };
+                    form.setValue("customTags", newTags);
+                    onChange(newConfig);
+                  }} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select order type..." />
