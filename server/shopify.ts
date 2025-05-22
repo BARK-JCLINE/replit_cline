@@ -237,9 +237,6 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   ];
   const tags = allTags.join(", ");
 
-  // Get the Shopify location ID for the selected warehouse
-  const locationId = getLocationIdFromWarehouse(config.warehouse);
-
   return {
     line_items: lineItems,
     customer: {
@@ -253,7 +250,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     note: `Created with Replit tool - Warehouse: ${config.warehouse.toUpperCase()}`,
     source_name: "QA Test Generator",
     financial_status: "paid",
-    location_id: locationId, // This will set the fulfillment warehouse!
+    location_id: locationId, // Set fulfillment warehouse before auto-fulfillment
   };
 }
 
