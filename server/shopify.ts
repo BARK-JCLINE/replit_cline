@@ -76,9 +76,38 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    console.log("🏭 Creating order with location_id:", orderData.location_id);
-    console.log("📦 Order data being sent to Shopify:", JSON.stringify({ order: orderData }, null, 2));
-    return this.makeRequest("/orders.json", "POST", { order: orderData });
+    console.log("🏭 Creating draft order with location_id:", orderData.location_id);
+    
+    // Step 1: Create as draft order first
+    const draftOrderData = {
+      ...orderData,
+      // Remove location_id from main order and save it for later
+    };
+    const savedLocationId = orderData.location_id;
+    delete draftOrderData.location_id;
+    
+    console.log("📝 Creating draft order first...");
+    const draftResponse = await this.makeRequest("/draft_orders.json", "POST", { 
+      draft_order: draftOrderData 
+    });
+    
+    console.log("✅ Draft order created:", draftResponse.draft_order.id);
+    
+    // Step 2: Complete the draft order with location specified
+    console.log("🏭 Completing draft with location_id:", savedLocationId);
+    const completeData: any = {};
+    if (savedLocationId) {
+      completeData.location_id = savedLocationId;
+    }
+    
+    const finalResponse = await this.makeRequest(
+      `/draft_orders/${draftResponse.draft_order.id}/complete.json`, 
+      "POST",
+      completeData
+    );
+    
+    console.log("🎉 Draft order completed as real order");
+    return finalResponse;
   }
 
   async createFulfillment(orderId: number, locationId: number) {
