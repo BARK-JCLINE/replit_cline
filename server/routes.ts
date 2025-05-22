@@ -149,11 +149,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create orders endpoint - creates real Shopify orders
   app.post("/api/orders/create", async (req, res) => {
     try {
-      const { configurationId, batchId } = req.body;
+      const { configurationId, batchId, configuration: directConfig } = req.body;
       
-      const configuration = await storage.getOrderConfiguration(configurationId);
-      if (!configuration) {
-        return res.status(404).json({ error: "Configuration not found" });
+      // Use either saved configuration or direct configuration data
+      let configuration;
+      if (configurationId) {
+        configuration = await storage.getOrderConfiguration(configurationId);
+        if (!configuration) {
+          return res.status(404).json({ error: "Configuration not found" });
+        }
+      } else if (directConfig) {
+        configuration = directConfig;
+      } else {
+        return res.status(400).json({ error: "Either configurationId or configuration data required" });
       }
 
       const batch = await storage.getOrderBatchByBatchId(batchId);
