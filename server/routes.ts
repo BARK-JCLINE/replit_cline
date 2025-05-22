@@ -148,6 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create orders endpoint - creates real Shopify orders
   app.post("/api/orders/create", async (req, res) => {
+    console.log("ROUTE HIT: /api/orders/create");
     try {
       console.log("Full request body:", JSON.stringify(req.body, null, 2));
       
