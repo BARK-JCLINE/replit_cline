@@ -90,32 +90,32 @@ export class ShopifyAPI {
     
     if (savedLocationId && response.order?.id) {
       try {
-        // Try updating the order directly with location_id
-        console.log("🔄 Step 2: Updating order with location_id:", savedLocationId);
-        const updateData = {
-          order: {
-            id: response.order.id,
-            location_id: savedLocationId
-          }
-        };
+        // Use the specialized location API credentials
+        console.log("🔑 Step 2: Using location API credentials for warehouse assignment");
+        const locationApiKey = process.env.LOCATION_API_KEY;
+        const locationApiSecret = process.env.LOCATION_API_SECRET_KEY;
         
-        const updateResponse = await this.makeRequest(`/orders/${response.order.id}.json`, "PUT", updateData);
-        console.log("✅ Order updated with BBH location!");
-        console.log("🏪 Updated location_id:", updateResponse.order?.location_id);
+        if (locationApiKey && locationApiSecret) {
+          console.log("🎯 Using OM test app credentials for location assignment");
+          await this.assignLocationWithCredentials(response.order.id, savedLocationId, locationApiKey, locationApiSecret);
+          console.log("✅ BBH warehouse assigned using location API!");
+        } else {
+          // Fallback to regular update
+          console.log("🔄 Falling back to regular order update...");
+          const updateData = {
+            order: {
+              id: response.order.id,
+              location_id: savedLocationId
+            }
+          };
+          
+          const updateResponse = await this.makeRequest(`/orders/${response.order.id}.json`, "PUT", updateData);
+          console.log("✅ Order updated with BBH location!");
+          console.log("🏪 Updated location_id:", updateResponse.order?.location_id);
+        }
         
       } catch (updateError) {
-        console.error("❌ Order update failed:", updateError);
-        console.log("🔄 Falling back to line item approach...");
-        
-        // Fallback: try updating line items with location
-        try {
-          for (const lineItem of response.order.line_items) {
-            await this.updateLineItemLocation(response.order.id, lineItem.id, savedLocationId);
-          }
-          console.log("✅ Line items updated with BBH location!");
-        } catch (lineItemError) {
-          console.error("❌ Line item update also failed:", lineItemError);
-        }
+        console.error("❌ Location assignment failed:", updateError);
       }
     }
     
