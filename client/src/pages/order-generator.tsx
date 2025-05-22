@@ -89,6 +89,27 @@ export default function OrderGenerator() {
     },
   });
 
+  // Save template mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (config: InsertOrderConfiguration) => {
+      const response = await apiRequest("POST", "/api/configurations", config);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Template Saved!",
+        description: `Configuration "${data.name}" has been saved as a reusable template.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Save Failed",
+        description: "Failed to save configuration template. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Create orders mutation
   const createOrdersMutation = useMutation({
     mutationFn: async (config: InsertOrderConfiguration) => {
@@ -184,6 +205,20 @@ export default function OrderGenerator() {
     validateMutation.mutate(orderConfig);
   };
 
+  const handleSaveTemplate = () => {
+    // Basic validation before saving
+    if (!orderConfig.name.trim()) {
+      toast({
+        title: "Template Name Required",
+        description: "Please enter a configuration name before saving the template.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    saveTemplateMutation.mutate(orderConfig);
+  };
+
   const handleExportConfig = () => {
     const configJson = JSON.stringify(orderConfig, null, 2);
     const blob = new Blob([configJson], { type: "application/json" });
@@ -238,8 +273,17 @@ export default function OrderGenerator() {
                   <h2 className="text-xl font-semibold text-gray-900">
                     Order Configuration
                   </h2>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleSaveTemplate}
+                    disabled={saveTemplateMutation.isPending}
+                  >
+                    {saveTemplateMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
                     Save Template
                   </Button>
                 </div>

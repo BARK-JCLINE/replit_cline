@@ -189,8 +189,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   const tags = [
     config.subscriptionType,
     config.customTags,
-    "QA-Test",
-    `Warehouse-${config.warehouse}`,
+    "replit",
   ].filter(Boolean).join(", ");
 
   return {
