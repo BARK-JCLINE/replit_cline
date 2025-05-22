@@ -167,6 +167,7 @@ export default function OrderGenerator() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/configurations"] });
+      queryClient.refetchQueries({ queryKey: ["/api/configurations"] });
       toast({
         title: "Template Deleted!",
         description: "Template has been deleted successfully.",
