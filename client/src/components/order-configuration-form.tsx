@@ -142,7 +142,7 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Warehouse Location</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select warehouse..." />
@@ -167,7 +167,7 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Address</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select address..." />
