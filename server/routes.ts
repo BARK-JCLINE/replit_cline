@@ -149,11 +149,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create orders endpoint - creates real Shopify orders
   app.post("/api/orders/create", async (req, res) => {
     try {
-      const { configurationId, batchId } = req.body;
+      const { configurationId, configuration, batchId } = req.body;
       
-      const configuration = await storage.getOrderConfiguration(configurationId);
-      if (!configuration) {
-        return res.status(404).json({ error: "Configuration not found" });
+      // Use provided configuration or fetch from database
+      let orderConfig;
+      if (configuration) {
+        // Direct configuration provided (for temporary orders)
+        orderConfig = configuration;
+      } else if (configurationId) {
+        // Configuration ID provided (for saved templates)
+        orderConfig = await storage.getOrderConfiguration(configurationId);
+        if (!orderConfig) {
+          return res.status(404).json({ error: "Configuration not found" });
+        }
+      } else {
+        return res.status(400).json({ error: "Either configuration or configurationId must be provided" });
       }
 
       const batch = await storage.getOrderBatchByBatchId(batchId);
@@ -164,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update batch status to processing
       await storage.updateOrderBatchProgress(batchId, 0, "processing");
 
-      const { orderCount, orderDelay } = configuration;
+      const { orderCount, orderDelay } = orderConfig;
       const createdOrders = [];
 
       for (let i = 0; i < orderCount; i++) {
@@ -175,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Create the Shopify order from configuration
-          const shopifyOrderData = createShopifyOrderFromConfig(configuration);
+          const shopifyOrderData = createShopifyOrderFromConfig(orderConfig);
           
           // Try to find actual products by SKU and update line items
           const updatedLineItems = [];

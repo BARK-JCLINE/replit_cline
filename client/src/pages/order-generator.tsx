@@ -202,27 +202,19 @@ export default function OrderGenerator() {
     mutationFn: async (config: InsertOrderConfiguration) => {
       // Create batch with a unique temporary name for order creation
       const batchId = `BATCH-${Date.now()}`;
-      const tempConfig = {
-        ...config,
-        name: `Temp-Order-${Date.now()}` // Use unique temp name to avoid duplicates
-      };
       
-      // Save temporary configuration for order creation
-      const configResponse = await apiRequest("POST", "/api/configurations", tempConfig);
-      const savedConfig = await configResponse.json();
-
-      // Create batch
+      // Create batch without saving configuration permanently
       const batchResponse = await apiRequest("POST", "/api/batches", {
         batchId,
-        configurationId: savedConfig.id,
+        configurationId: null, // No permanent config needed for temporary orders
         orderCount: config.orderCount,
         status: "pending",
       });
       const batch = await batchResponse.json();
 
-      // Start order creation
+      // Start order creation directly with the configuration
       const orderResponse = await apiRequest("POST", "/api/orders/create", {
-        configurationId: savedConfig.id,
+        configuration: config, // Pass config directly instead of ID
         batchId,
       });
       return orderResponse.json();
