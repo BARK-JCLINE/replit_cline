@@ -77,40 +77,55 @@ export class ShopifyAPI {
 
   async createOrder(orderData: ShopifyOrder) {
     console.log("🏭 Creating order with location_id:", orderData.location_id);
-    console.log("📦 Creating order with manual fulfillment to control warehouse");
-    
-    // Create order with manual fulfillment to prevent auto-assignment
-    const modifiedOrderData = {
-      ...orderData,
-      fulfillment_status: null,
-      line_items: orderData.line_items.map(item => ({
-        ...item,
-        fulfillment_service: "manual"
-      }))
-    };
+    console.log("📦 New approach: Cancel auto-fulfillment and replace with correct warehouse");
     
     const savedLocationId = orderData.location_id;
-    delete modifiedOrderData.location_id;
+    delete orderData.location_id;
     
-    console.log("🎯 Creating order with manual fulfillment, then assigning location:", savedLocationId);
-    
-    const response = await this.makeRequest("/orders.json", "POST", { order: modifiedOrderData });
+    console.log("🎯 Step 1: Creating order (auto-fulfillment will trigger)");
+    const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
     
     console.log("📋 Order created:", response.order?.id);
     console.log("🏪 Initial location_id:", response.order?.location_id);
     
-    // Immediately create fulfillment with our desired location
-    if (savedLocationId && response.order?.id && response.order?.line_items) {
+    if (savedLocationId && response.order?.id) {
       try {
-        console.log("🚚 Creating fulfillment for location:", savedLocationId);
+        // Step 2: Get any existing fulfillments and cancel them
+        console.log("🔍 Step 2: Checking for automatic fulfillments to cancel...");
+        const fulfillments = await this.getFulfillments(response.order.id);
+        
+        for (const fulfillment of fulfillments) {
+          if (fulfillment.status === 'pending' || fulfillment.status === 'open') {
+            console.log("❌ Canceling auto-fulfillment:", fulfillment.id);
+            await this.cancelFulfillment(response.order.id, fulfillment.id);
+          }
+        }
+        
+        // Step 3: Create our own fulfillment with correct location
+        console.log("🚚 Step 3: Creating fulfillment for BBH location:", savedLocationId);
         await this.createFulfillment(response.order.id, savedLocationId, response.order.line_items);
-        console.log("✅ Fulfillment created successfully with BBH location!");
+        console.log("✅ Successfully replaced fulfillment with BBH location!");
+        
       } catch (fulfillmentError) {
-        console.error("❌ Fulfillment failed:", fulfillmentError);
+        console.error("❌ Fulfillment replacement failed:", fulfillmentError);
       }
     }
     
     return response;
+  }
+
+  async getFulfillments(orderId: number) {
+    try {
+      const response = await this.makeRequest(`/orders/${orderId}/fulfillments.json`);
+      return response.fulfillments || [];
+    } catch (error) {
+      console.log("📋 No existing fulfillments found");
+      return [];
+    }
+  }
+
+  async cancelFulfillment(orderId: number, fulfillmentId: number) {
+    return this.makeRequest(`/orders/${orderId}/fulfillments/${fulfillmentId}/cancel.json`, "POST", {});
   }
 
   async createFulfillment(orderId: number, locationId: number, lineItems?: any[]) {
