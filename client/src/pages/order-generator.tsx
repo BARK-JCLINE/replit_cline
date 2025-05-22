@@ -131,10 +131,10 @@ export default function OrderGenerator() {
 
   const handleCreateOrders = async () => {
     // Basic validation
-    if (!orderConfig.warehouse || !orderConfig.shippingRegion) {
+    if (!orderConfig.warehouse || !orderConfig.address) {
       toast({
         title: "Validation Error",
-        description: "Please select warehouse and region before creating orders.",
+        description: "Please select warehouse and address before creating orders.",
         variant: "destructive",
       });
       return;
