@@ -312,6 +312,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete batch endpoint
+  app.delete("/api/batches/:id", async (req, res) => {
+    try {
+      const batchId = parseInt(req.params.id);
+      const { deleteFromShopify } = req.body;
+
+      // Get the batch to access created orders
+      const batch = await storage.getOrderBatch(batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+
+      // If deleteFromShopify is true, try to delete orders from Shopify
+      if (deleteFromShopify && Array.isArray(batch.createdOrders)) {
+        for (const order of batch.createdOrders) {
+          try {
+            if (order.id) {
+              await shopifyAPI.deleteOrder(order.id);
+            }
+          } catch (shopifyError) {
+            console.warn(`Failed to delete order ${order.id} from Shopify:`, shopifyError);
+            // Continue with other orders even if one fails
+          }
+        }
+      }
+
+      // Delete the batch from our storage
+      const deleted = await storage.deleteOrderBatch(batchId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Failed to delete batch" });
+      }
+
+      res.json({ success: true, message: "Batch deleted successfully" });
+    } catch (error) {
+      console.error("Failed to delete batch:", error);
+      res.status(500).json({ error: "Failed to delete batch", details: (error as Error).message });
+    }
+  });
+
   // Validation endpoint
   app.post("/api/validate-configuration", async (req, res) => {
     try {
