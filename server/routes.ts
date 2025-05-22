@@ -314,53 +314,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Delete batch endpoint
   app.delete("/api/batches/:id", async (req, res) => {
+    const batchId = parseInt(req.params.id);
+    const { deleteFromShopify } = req.body || {};
+
+    console.log(`🗑️ Delete request for batch ${batchId}, deleteFromShopify: ${deleteFromShopify}`);
+
     try {
-      const batchId = parseInt(req.params.id);
-      const { deleteFromShopify } = req.body;
-
-      console.log(`Delete request for batch ${batchId}, deleteFromShopify: ${deleteFromShopify}`);
-
       // First, let's see what batches actually exist
       const allBatches = await storage.getAllOrderBatches();
-      console.log(`All batches in storage:`, allBatches.map(b => ({ id: b.id, batchId: b.batchId })));
+      console.log(`📋 All batches in storage:`, allBatches.map(b => ({ id: b.id, batchId: b.batchId })));
 
       // Get the batch to access created orders
       const batch = await storage.getOrderBatch(batchId);
       if (!batch) {
-        console.log(`Batch ${batchId} not found in storage`);
+        console.log(`❌ Batch ${batchId} not found in storage`);
         return res.status(404).json({ error: "Batch not found" });
       }
 
-      console.log(`Found batch ${batchId}:`, batch);
+      console.log(`✅ Found batch ${batchId}:`, { id: batch.id, batchId: batch.batchId, ordersCount: batch.createdOrders?.length });
 
       // If deleteFromShopify is true, try to delete orders from Shopify
       if (deleteFromShopify && Array.isArray(batch.createdOrders)) {
-        console.log(`Attempting to delete ${batch.createdOrders.length} orders from Shopify`);
+        console.log(`🛒 Attempting to delete ${batch.createdOrders.length} orders from Shopify`);
         for (const order of batch.createdOrders) {
           try {
             if (order.id) {
               await shopifyAPI.deleteOrder(order.id);
-              console.log(`Deleted order ${order.id} from Shopify`);
+              console.log(`✅ Deleted order ${order.id} from Shopify`);
             }
           } catch (shopifyError) {
-            console.warn(`Failed to delete order ${order.id} from Shopify:`, shopifyError);
-            // Continue with other orders even if one fails
+            console.warn(`⚠️ Failed to delete order ${order.id} from Shopify:`, shopifyError);
           }
         }
       }
 
       // Delete the batch from our storage
-      console.log(`Deleting batch ${batchId} from storage`);
+      console.log(`🗃️ Deleting batch ${batchId} from storage`);
       const deleted = await storage.deleteOrderBatch(batchId);
-      console.log(`Batch deletion result:`, deleted);
+      console.log(`🎯 Batch deletion result:`, deleted);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Failed to delete batch" });
+        console.log(`❌ Storage deletion failed for batch ${batchId}`);
+        return res.status(500).json({ error: "Failed to delete batch from storage" });
       }
 
+      console.log(`🎉 Successfully deleted batch ${batchId}`);
       res.json({ success: true, message: "Batch deleted successfully" });
     } catch (error) {
-      console.error("Failed to delete batch:", error);
+      console.error("💥 Failed to delete batch:", error);
       res.status(500).json({ error: "Failed to delete batch", details: (error as Error).message });
     }
   });
