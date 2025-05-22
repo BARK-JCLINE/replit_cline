@@ -244,7 +244,13 @@ export default function OrderGenerator() {
     }, 1000);
 
     try {
-      await createOrdersMutation.mutateAsync(orderConfig);
+      // Clean the config before sending - remove empty line items
+      const cleanedConfig = {
+        ...orderConfig,
+        lineItems: orderConfig.lineItems.filter(item => item.productId && item.productId.trim() !== "")
+      };
+      
+      await createOrdersMutation.mutateAsync(cleanedConfig);
     } finally {
       clearInterval(progressInterval);
     }
