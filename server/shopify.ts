@@ -136,6 +136,42 @@ export class ShopifyAPI {
     return this.makeRequest(`/orders/${orderId}/fulfillments/${fulfillmentId}/cancel.json`, "POST", {});
   }
 
+  async assignLocationWithCredentials(orderId: number, locationId: number, apiKey: string, apiSecret: string) {
+    console.log("🔑 Using location API credentials for warehouse assignment");
+    
+    // Create fulfillment using the location API credentials
+    const fulfillmentData = {
+      fulfillment: {
+        location_id: locationId,
+        notify_customer: false,
+        tracking_numbers: []
+      }
+    };
+    
+    const options: RequestInit = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": apiKey,
+        "Authorization": `Bearer ${apiSecret}`
+      },
+      body: JSON.stringify(fulfillmentData)
+    };
+    
+    const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
+    const url = `https://${shopDomain}/admin/api/${this.apiVersion}/orders/${orderId}/fulfillments.json`;
+    
+    console.log("🚚 Creating fulfillment with location API credentials...");
+    const response = await fetch(url, options);
+    
+    if (!response.ok) {
+      console.error("❌ Location API request failed:", response.status, await response.text());
+      throw new Error(`Location API Error: ${response.status}`);
+    }
+    
+    return response.json();
+  }
+
   async updateLineItemLocation(orderId: number, lineItemId: number, locationId: number) {
     const updateData = {
       line_item: {
