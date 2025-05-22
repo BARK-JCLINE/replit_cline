@@ -76,6 +76,8 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
+    console.log("🏭 Creating order with location_id:", orderData.location_id);
+    console.log("📦 Order data being sent to Shopify:", JSON.stringify({ order: orderData }, null, 2));
     return this.makeRequest("/orders.json", "POST", { order: orderData });
   }
 
