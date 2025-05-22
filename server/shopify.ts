@@ -96,6 +96,16 @@ export class ShopifyAPI {
     console.log("🏪 Shopify assigned location_id:", response.order?.location_id);
     console.log("🏷️ Order tags with warehouse info:", response.order?.tags);
     
+    // Now use the tags to actually update the location
+    if (response.order?.id && savedLocationId) {
+      try {
+        console.log("🔄 Step 2: Using tags to update order location to:", savedLocationId);
+        await this.updateOrderLocationFromTags(response.order.id, savedLocationId);
+      } catch (error) {
+        console.error("❌ Failed to update location from tags:", error);
+      }
+    }
+    
     return response;
   }
   
@@ -106,6 +116,63 @@ export class ShopifyAPI {
       101212520723: "BBP"
     };
     return warehouseMap[locationId] || "UNKNOWN";
+  }
+
+  async updateOrderLocationFromTags(orderId: number, locationId: number) {
+    console.log("🏷️ Updating order location using tag information");
+    
+    // Try multiple approaches to update the location
+    const approaches = [
+      // Approach 1: Direct order update
+      async () => {
+        console.log("🔄 Approach 1: Direct order location update");
+        const updateData = { order: { location_id: locationId } };
+        return await this.makeRequest(`/orders/${orderId}.json`, "PUT", updateData);
+      },
+      
+      // Approach 2: Update via metafields
+      async () => {
+        console.log("🔄 Approach 2: Setting location via metafields");
+        const metafieldData = {
+          metafield: {
+            namespace: "warehouse",
+            key: "location_id", 
+            value: locationId.toString(),
+            type: "single_line_text_field"
+          }
+        };
+        return await this.makeRequest(`/orders/${orderId}/metafields.json`, "POST", metafieldData);
+      },
+      
+      // Approach 3: Update line items with location
+      async () => {
+        console.log("🔄 Approach 3: Updating line items with location");
+        const order = await this.makeRequest(`/orders/${orderId}.json`);
+        for (const lineItem of order.order.line_items) {
+          const updateData = { 
+            line_item: { 
+              fulfillment_service: "manual",
+              vendor: `WAREHOUSE_${this.getWarehouseNameFromId(locationId)}`
+            } 
+          };
+          await this.makeRequest(`/orders/${orderId}/line_items/${lineItem.id}.json`, "PUT", updateData);
+        }
+        return { success: true };
+      }
+    ];
+
+    for (let i = 0; i < approaches.length; i++) {
+      try {
+        const result = await approaches[i]();
+        console.log(`✅ Approach ${i + 1} succeeded!`);
+        return result;
+      } catch (error) {
+        console.log(`❌ Approach ${i + 1} failed:`, error.message);
+        if (i === approaches.length - 1) {
+          throw error; // Re-throw if all approaches failed
+        }
+      }
+    }
   }
 
   async getFulfillments(orderId: number) {
