@@ -234,6 +234,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     quantity: item.quantity,
     price: "10.00", // Default price - will be updated when we find actual product
     sku: item.productId,
+    fulfillment_service: "manual", // Force manual fulfillment to allow location selection
   }));
 
   // Create tags from configuration (only use customTags, not subscriptionType)
