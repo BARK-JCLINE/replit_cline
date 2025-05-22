@@ -100,10 +100,10 @@ export class ShopifyAPI {
     console.log("🏪 Initial location_id:", response.order?.location_id);
     
     // Immediately create fulfillment with our desired location
-    if (savedLocationId && response.order?.id) {
+    if (savedLocationId && response.order?.id && response.order?.line_items) {
       try {
         console.log("🚚 Creating fulfillment for location:", savedLocationId);
-        await this.createFulfillment(response.order.id, savedLocationId);
+        await this.createFulfillment(response.order.id, savedLocationId, response.order.line_items);
         console.log("✅ Fulfillment created successfully with BBH location!");
       } catch (fulfillmentError) {
         console.error("❌ Fulfillment failed:", fulfillmentError);
@@ -113,16 +113,20 @@ export class ShopifyAPI {
     return response;
   }
 
-  async createFulfillment(orderId: number, locationId: number) {
+  async createFulfillment(orderId: number, locationId: number, lineItems?: any[]) {
     const fulfillmentData = {
       fulfillment: {
         location_id: locationId,
         notify_customer: false,
         tracking_numbers: [],
-        line_items: [] // Shopify will auto-assign all line items
+        line_items: lineItems ? lineItems.map(item => ({ 
+          id: item.id, 
+          quantity: item.quantity 
+        })) : []
       }
     };
     
+    console.log("🔧 Fulfillment data:", JSON.stringify(fulfillmentData, null, 2));
     return this.makeRequest(`/orders/${orderId}/fulfillments.json`, "POST", fulfillmentData);
   }
 
