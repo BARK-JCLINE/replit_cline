@@ -1,6 +1,7 @@
 export interface DropdownOption {
   value: string;
   label: string;
+  sku?: string;
 }
 
 export const WAREHOUSE_OPTIONS: DropdownOption[] = [
@@ -55,4 +56,11 @@ export const ORDER_DELAY_OPTIONS: DropdownOption[] = [
   { value: "1", label: "1 second" },
   { value: "5", label: "5 seconds" },
   { value: "10", label: "10 seconds" },
+];
+
+export const SKU_TEMPLATE_OPTIONS: DropdownOption[] = [
+  { value: "bb-subscription", label: "BB Subscription", sku: "BB-SUB-001" },
+  { value: "sc-subscription", label: "SC Subscription", sku: "SC-SUB-001" },
+  { value: "kibble", label: "Kibble", sku: "KIBBLE-001" },
+  { value: "product", label: "Product", sku: "PROD-001" },
 ];

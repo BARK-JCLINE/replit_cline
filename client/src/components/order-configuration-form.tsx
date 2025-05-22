@@ -28,6 +28,7 @@ import {
   PRODUCT_OPTIONS,
   ORDER_TYPE_OPTIONS,
   ORDER_DELAY_OPTIONS,
+  SKU_TEMPLATE_OPTIONS,
 } from "@/lib/types";
 
 interface OrderConfigurationFormProps {
@@ -138,6 +139,37 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
             <Box className="text-blue-600 mr-2 h-5 w-5" />
             Line Items Configuration
           </h3>
+          
+          {/* SKU Template Helper */}
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4">
+              <h4 className="text-sm font-medium text-blue-900 mb-3">Quick SKU Templates</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {SKU_TEMPLATE_OPTIONS.map((template) => (
+                  <Button
+                    key={template.value}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (config.lineItems.length === 1 && !config.lineItems[0].productId) {
+                        updateLineItem(0, { productId: template.sku || template.value });
+                      } else {
+                        const newLineItems = [...config.lineItems, { productId: template.sku || template.value, quantity: 1 }];
+                        const newConfig = { ...config, lineItems: newLineItems };
+                        form.setValue("lineItems", newLineItems);
+                        onChange(newConfig);
+                      }
+                    }}
+                    className="text-xs bg-white hover:bg-blue-100 border-blue-300"
+                  >
+                    {template.label}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-gray-50">
             <CardContent className="p-4">
               <div className="space-y-4">
