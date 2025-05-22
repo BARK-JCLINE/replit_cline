@@ -55,7 +55,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/batches", async (req, res) => {
     try {
-      const validatedData = insertOrderBatchSchema.parse(req.body);
+      // Remove progress field if it exists and validate
+      const { progress, ...batchData } = req.body;
+      const validatedData = insertOrderBatchSchema.parse(batchData);
       const batch = await storage.createOrderBatch(validatedData);
       res.status(201).json(batch);
     } catch (error) {
