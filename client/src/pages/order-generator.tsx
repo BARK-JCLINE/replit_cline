@@ -71,6 +71,8 @@ export default function OrderGenerator() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [selectedExistingTemplate, setSelectedExistingTemplate] = useState<number | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: number; name: string } | null>(null);
 
   // Fetch order batches for history
   const { data: orderBatches = [], refetch: refetchBatches } = useQuery<OrderBatch[]>({
@@ -162,12 +164,24 @@ export default function OrderGenerator() {
   // Delete template mutation
   const deleteTemplateMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", `/api/configurations/${id}`);
-      return response;
+      const response = await fetch(`/api/configurations/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Delete failed: ${response.status}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/configurations"] });
-      queryClient.refetchQueries({ queryKey: ["/api/configurations"] });
+      queryClient.removeQueries({ queryKey: ["/api/configurations"] });
+      setDeleteDialogOpen(false);
+      setTemplateToDelete(null);
       toast({
         title: "Template Deleted!",
         description: "Template has been deleted successfully.",
@@ -448,9 +462,8 @@ export default function OrderGenerator() {
                                   className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (window.confirm(`Are you sure you want to delete the template "${template.name}"?`)) {
-                                      deleteTemplateMutation.mutate(template.id);
-                                    }
+                                    setTemplateToDelete({ id: template.id, name: template.name });
+                                    setDeleteDialogOpen(true);
                                   }}
                                 >
                                   🗑️
