@@ -26,7 +26,6 @@ export const ORDER_TYPE_OPTIONS: DropdownOption[] = [
   { value: "first-subscription", label: "First Subscription" },
   { value: "continuity-subscription", label: "Continuity Subscription" },
   { value: "kibble", label: "Kibble" },
-  { value: "product", label: "Product" },
 ];
 
 export const CUSTOMER_SEGMENT_OPTIONS: DropdownOption[] = [

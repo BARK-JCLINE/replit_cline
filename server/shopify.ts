@@ -185,12 +185,12 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     sku: item.productId,
   }));
 
-  // Create tags from configuration
-  const tags = [
-    config.subscriptionType,
-    config.customTags,
+  // Create tags from configuration (only use customTags, not subscriptionType)
+  const allTags = [
+    ...(config.customTags || []),
     "replit",
-  ].filter(Boolean).join(", ");
+  ];
+  const tags = allTags.join(", ");
 
   return {
     line_items: lineItems,
