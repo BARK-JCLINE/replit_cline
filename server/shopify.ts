@@ -76,50 +76,36 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    console.log("🏭 Creating order with location_id:", orderData.location_id);
-    console.log("📦 Trying direct order update approach for warehouse assignment");
+    console.log("🏭 Creating order with warehouse:", orderData.location_id);
+    console.log("🏷️ New approach: Using tags to track warehouse assignment");
     
     const savedLocationId = orderData.location_id;
     delete orderData.location_id;
     
-    console.log("🎯 Step 1: Creating order");
+    // Add warehouse info to tags for tracking
+    const warehouseName = this.getWarehouseNameFromId(savedLocationId);
+    const existingTags = orderData.tags ? orderData.tags.split(", ") : [];
+    existingTags.push(`WAREHOUSE:${warehouseName}`);
+    existingTags.push(`LOCATION_ID:${savedLocationId}`);
+    orderData.tags = existingTags.join(", ");
+    
+    console.log("🎯 Creating order with warehouse tags:", orderData.tags);
     const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
     
     console.log("📋 Order created:", response.order?.id);
-    console.log("🏪 Initial location_id:", response.order?.location_id);
-    
-    if (savedLocationId && response.order?.id) {
-      try {
-        // Use the specialized location API credentials
-        console.log("🔑 Step 2: Using location API credentials for warehouse assignment");
-        const locationApiKey = process.env.LOCATION_API_KEY;
-        const locationApiSecret = process.env.LOCATION_API_SECRET_KEY;
-        
-        if (locationApiKey && locationApiSecret) {
-          console.log("🎯 Using OM test app credentials for location assignment");
-          await this.assignLocationWithCredentials(response.order.id, savedLocationId, locationApiKey, locationApiSecret);
-          console.log("✅ BBH warehouse assigned using location API!");
-        } else {
-          // Fallback to regular update
-          console.log("🔄 Falling back to regular order update...");
-          const updateData = {
-            order: {
-              id: response.order.id,
-              location_id: savedLocationId
-            }
-          };
-          
-          const updateResponse = await this.makeRequest(`/orders/${response.order.id}.json`, "PUT", updateData);
-          console.log("✅ Order updated with BBH location!");
-          console.log("🏪 Updated location_id:", updateResponse.order?.location_id);
-        }
-        
-      } catch (updateError) {
-        console.error("❌ Location assignment failed:", updateError);
-      }
-    }
+    console.log("🏪 Shopify assigned location_id:", response.order?.location_id);
+    console.log("🏷️ Order tags with warehouse info:", response.order?.tags);
     
     return response;
+  }
+  
+  private getWarehouseNameFromId(locationId: number): string {
+    const warehouseMap: Record<number, string> = {
+      96010764563: "BBL",
+      105521053971: "BBH", 
+      101212520723: "BBP"
+    };
+    return warehouseMap[locationId] || "UNKNOWN";
   }
 
   async getFulfillments(orderId: number) {
