@@ -148,32 +148,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create orders endpoint - creates real Shopify orders
   app.post("/api/orders/create", async (req, res) => {
-    console.log("ROUTE HIT: /api/orders/create");
     try {
-      console.log("Full request body:", JSON.stringify(req.body, null, 2));
-      
       const { configurationId, batchId, configuration: directConfig } = req.body;
       
-      console.log("Extracted values:", { 
-        configurationId, 
-        batchId, 
-        hasDirectConfig: !!directConfig,
-        directConfigKeys: directConfig ? Object.keys(directConfig) : null
-      });
+      // Quick test to see what we're receiving
+      if (!directConfig && !configurationId) {
+        return res.status(400).json({ 
+          error: "Missing configuration data",
+          received: Object.keys(req.body),
+          hasDirectConfig: !!directConfig,
+          hasConfigId: !!configurationId
+        });
+      }
       
-      // Use either saved configuration or direct configuration data
+      // Use direct configuration data if provided, otherwise look up saved configuration
       let configuration;
       if (directConfig) {
-        console.log("Using direct configuration data");
         configuration = directConfig;
       } else if (configurationId) {
-        console.log("Using saved configuration with ID:", configurationId);
         configuration = await storage.getOrderConfiguration(configurationId);
         if (!configuration) {
           return res.status(404).json({ error: "Configuration not found" });
         }
       } else {
-        console.log("No configuration provided - neither configurationId nor configuration found");
         return res.status(400).json({ error: "Either configurationId or configuration data required" });
       }
 
