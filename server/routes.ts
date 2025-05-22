@@ -43,6 +43,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/configurations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertOrderConfigurationSchema.parse(req.body);
+      const configuration = await storage.updateOrderConfiguration(id, validatedData);
+      if (!configuration) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      res.json(configuration);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Validation failed", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Failed to update configuration" });
+      }
+    }
+  });
+
   // Order Batch routes
   app.get("/api/batches", async (req, res) => {
     try {
