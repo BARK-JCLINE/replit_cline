@@ -23,6 +23,7 @@ export interface ShopifyOrder {
   source_name: "QA Test Generator";
   financial_status: "paid";
   fulfillment_status?: string;
+  location_id?: number; // Add location_id to specify warehouse
 }
 
 export interface ShopifyAddress {
@@ -142,6 +143,17 @@ export class ShopifyAPI {
       throw new Error("Failed to delete order from Shopify");
     }
   }
+}
+
+// Map warehouse codes to Shopify location IDs
+function getLocationIdFromWarehouse(warehouse: string): number | undefined {
+  const warehouseMap: Record<string, number> = {
+    "om-bbl": 0, // BBL location ID - needs to be set to actual Shopify location ID
+    "om-bbh": 0, // BBH location ID - needs to be set to actual Shopify location ID  
+    "om-bbp": 0, // BBP location ID - needs to be set to actual Shopify location ID
+  };
+  
+  return warehouseMap[warehouse];
 }
 
 export function createShopifyOrderFromConfig(config: OrderConfiguration): ShopifyOrder {
