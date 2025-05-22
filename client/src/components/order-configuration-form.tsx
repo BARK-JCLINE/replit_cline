@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Warehouse, Box, Tags, MapPin, Copy, Plus, Trash2 } from "lucide-react";
+import { Warehouse, Box, Tags, MapPin, Copy, Plus, Trash2, User } from "lucide-react";
 import {
   WAREHOUSE_OPTIONS,
   ADDRESS_OPTIONS,
