@@ -1,16 +1,6 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -22,8 +12,6 @@ import {
 import { History, Download, Trash2, Eye, RotateCcw, CheckCircle, XCircle } from "lucide-react";
 import type { OrderBatch } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 
 interface OrderHistoryProps {
   batches: OrderBatch[];
@@ -32,66 +20,6 @@ interface OrderHistoryProps {
 
 export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [batchToDelete, setBatchToDelete] = useState<OrderBatch | null>(null);
-  const [deleteFromShopify, setDeleteFromShopify] = useState(false);
-
-  // Delete batch mutation
-  const deleteBatchMutation = useMutation({
-    mutationFn: async ({ batchId, deleteFromShopify }: { batchId: number; deleteFromShopify: boolean }) => {
-      // If deleting from Shopify, delete each order individually
-      if (deleteFromShopify && batchToDelete?.createdOrders) {
-        const orders = Array.isArray(batchToDelete.createdOrders) ? batchToDelete.createdOrders : [];
-        for (const order of orders) {
-          if (order.id) {
-            try {
-              await fetch(`/api/orders/${order.id}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deleteFromShopify: true }),
-              });
-            } catch (error) {
-              console.warn(`Failed to delete order ${order.id} from Shopify:`, error);
-            }
-          }
-        }
-      }
-      
-      // Delete the batch from local storage
-      const response = await fetch(`/api/batches/${batchId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Delete failed: ${response.status}`);
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
-      setDeleteDialogOpen(false);
-      setBatchToDelete(null);
-      setDeleteFromShopify(false);
-      toast({
-        title: "Orders Deleted!",
-        description: deleteFromShopify ? 
-          "Orders deleted from both tool and Shopify store." :
-          "Orders deleted from tool history.",
-      });
-      onRefresh();
-    },
-    onError: (error) => {
-      console.error("Delete error:", error);
-      toast({
-        title: "Delete Failed",
-        description: "Failed to delete orders. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleExportHistory = () => {
     const historyJson = JSON.stringify(batches, null, 2);
@@ -263,17 +191,6 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                           <Button variant="ghost" size="sm">
                             <RotateCcw className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => {
-                              setBatchToDelete(batch);
-                              setDeleteDialogOpen(true);
-                            }}
-                            className="hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -283,72 +200,6 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
             </Table>
           </div>
         )}
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Order Batch</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete this order batch? This action cannot be undone.
-                {batchToDelete && (
-                  <div className="mt-2 p-3 bg-gray-50 rounded">
-                    <p className="text-sm"><strong>Batch:</strong> {batchToDelete.batchId}</p>
-                    <p className="text-sm"><strong>Orders:</strong> {batchToDelete.orderCount}</p>
-                    <p className="text-sm"><strong>Created:</strong> {formatTimestamp(batchToDelete.createdAt)}</p>
-                  </div>
-                )}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="delete-from-shopify"
-                  checked={deleteFromShopify}
-                  onCheckedChange={(checked) => setDeleteFromShopify(checked as boolean)}
-                />
-                <label
-                  htmlFor="delete-from-shopify"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Also delete orders from Shopify store
-                </label>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {deleteFromShopify 
-                  ? "Orders will be permanently removed from both the tool and your Shopify store."
-                  : "Orders will only be removed from the tool's history. They will remain in your Shopify store."
-                }
-              </p>
-            </div>
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setDeleteDialogOpen(false);
-                  setBatchToDelete(null);
-                  setDeleteFromShopify(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={() => {
-                  if (batchToDelete) {
-                    deleteBatchMutation.mutate({ 
-                      batchId: batchToDelete.id, 
-                      deleteFromShopify 
-                    });
-                  }
-                }}
-                disabled={deleteBatchMutation.isPending}
-              >
-                {deleteBatchMutation.isPending ? "Deleting..." : "Delete"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </CardContent>
     </Card>
   );
