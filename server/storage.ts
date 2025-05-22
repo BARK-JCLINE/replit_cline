@@ -1,4 +1,7 @@
 import { orderConfigurations, orderBatches, type OrderConfiguration, type InsertOrderConfiguration, type OrderBatch, type InsertOrderBatch } from "@shared/schema";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Order Configuration methods
@@ -139,4 +142,92 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database storage implementation for permanent data persistence
+class DatabaseStorage implements IStorage {
+  private db;
+
+  constructor() {
+    const sql = neon(process.env.DATABASE_URL!);
+    this.db = drizzle(sql);
+  }
+
+  async createOrderConfiguration(insertConfig: InsertOrderConfiguration): Promise<OrderConfiguration> {
+    const [config] = await this.db.insert(orderConfigurations).values(insertConfig).returning();
+    return config;
+  }
+
+  async getOrderConfiguration(id: number): Promise<OrderConfiguration | undefined> {
+    const [config] = await this.db.select().from(orderConfigurations).where(eq(orderConfigurations.id, id));
+    return config;
+  }
+
+  async getAllOrderConfigurations(): Promise<OrderConfiguration[]> {
+    return await this.db.select().from(orderConfigurations);
+  }
+
+  async updateOrderConfiguration(id: number, updates: Partial<InsertOrderConfiguration>): Promise<OrderConfiguration | undefined> {
+    const [updated] = await this.db.update(orderConfigurations).set(updates).where(eq(orderConfigurations.id, id)).returning();
+    return updated;
+  }
+
+  async deleteOrderConfiguration(id: number): Promise<boolean> {
+    const result = await this.db.delete(orderConfigurations).where(eq(orderConfigurations.id, id));
+    return result.rowCount > 0;
+  }
+
+  async createOrderBatch(insertBatch: InsertOrderBatch): Promise<OrderBatch> {
+    const [batch] = await this.db.insert(orderBatches).values(insertBatch).returning();
+    return batch;
+  }
+
+  async getOrderBatch(id: number): Promise<OrderBatch | undefined> {
+    const [batch] = await this.db.select().from(orderBatches).where(eq(orderBatches.id, id));
+    return batch;
+  }
+
+  async getOrderBatchByBatchId(batchId: string): Promise<OrderBatch | undefined> {
+    const [batch] = await this.db.select().from(orderBatches).where(eq(orderBatches.batchId, batchId));
+    return batch;
+  }
+
+  async getAllOrderBatches(): Promise<OrderBatch[]> {
+    return await this.db.select().from(orderBatches);
+  }
+
+  async updateOrderBatch(id: number, updates: Partial<InsertOrderBatch>): Promise<OrderBatch | undefined> {
+    const [updated] = await this.db.update(orderBatches).set(updates).where(eq(orderBatches.id, id)).returning();
+    return updated;
+  }
+
+  async updateOrderBatchProgress(batchId: string, progress: number, status?: string): Promise<OrderBatch | undefined> {
+    const updates: any = { progress };
+    if (status) updates.status = status;
+    
+    const [updated] = await this.db.update(orderBatches).set(updates).where(eq(orderBatches.batchId, batchId)).returning();
+    return updated;
+  }
+
+  async completeOrderBatch(batchId: string, createdOrders: any[], errorMessage?: string): Promise<OrderBatch | undefined> {
+    const updates: any = {
+      status: errorMessage ? "failed" : "completed",
+      progress: 100,
+      completedAt: new Date(),
+      createdOrders,
+    };
+    
+    if (errorMessage) {
+      updates.errorMessage = errorMessage;
+    }
+
+    const [updated] = await this.db.update(orderBatches).set(updates).where(eq(orderBatches.batchId, batchId)).returning();
+    return updated;
+  }
+
+  async deleteOrderBatch(id: number): Promise<boolean> {
+    const result = await this.db.delete(orderBatches).where(eq(orderBatches.id, id));
+    return result.rowCount > 0;
+  }
+}
+
+// Use database storage for permanent persistence
+export const storage = new DatabaseStorage();
