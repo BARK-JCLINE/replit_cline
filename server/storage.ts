@@ -16,6 +16,7 @@ export interface IStorage {
   updateOrderBatch(id: number, batch: Partial<InsertOrderBatch>): Promise<OrderBatch | undefined>;
   updateOrderBatchProgress(batchId: string, progress: number, status?: string): Promise<OrderBatch | undefined>;
   completeOrderBatch(batchId: string, createdOrders: any[], errorMessage?: string): Promise<OrderBatch | undefined>;
+  deleteOrderBatch(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -131,6 +132,10 @@ export class MemStorage implements IStorage {
     };
     this.orderBatches.set(batch.id, updated);
     return updated;
+  }
+
+  async deleteOrderBatch(id: number): Promise<boolean> {
+    return this.orderBatches.delete(id);
   }
 }
 

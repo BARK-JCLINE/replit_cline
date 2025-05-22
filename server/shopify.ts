@@ -132,6 +132,16 @@ export class ShopifyAPI {
       return 271007;
     }
   }
+
+  async deleteOrder(orderId: string) {
+    try {
+      const response = await this.makeRequest(`/orders/${orderId}.json`, "DELETE");
+      return { success: true, message: "Order deleted from Shopify" };
+    } catch (error) {
+      console.error("Failed to delete order from Shopify:", error);
+      throw new Error("Failed to delete order from Shopify");
+    }
+  }
 }
 
 export function createShopifyOrderFromConfig(config: OrderConfiguration): ShopifyOrder {
@@ -202,7 +212,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     billing_address: address,
     shipping_address: address,
     tags,
-    note: `QA Test Order - Config: ${config.name}, Warehouse: ${config.warehouse}`,
+    note: "Created with Replit tool",
     source_name: "QA Test Generator",
     financial_status: "paid",
   };
