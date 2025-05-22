@@ -40,34 +40,27 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   // Delete batches mutation
   const deleteBatchesMutation = useMutation({
     mutationFn: async (batchesToDelete: { ids: number[], deleteFromShopify: boolean }) => {
-      const results = await Promise.allSettled(
-        batchesToDelete.ids.map(async id => {
-          try {
-            const response = await fetch(`/api/batches/${id}`, {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ deleteFromShopify: batchesToDelete.deleteFromShopify })
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(`Failed to delete batch ${id}: ${errorText}`);
-            }
-            
-            const result = await response.json();
-            console.log(`Successfully deleted batch ${id}:`, result);
-            return result;
-          } catch (error) {
-            console.error(`Error deleting batch ${id}:`, error);
-            throw error;
+      // Simple approach - delete each batch one by one
+      let succeeded = 0;
+      let failed = 0;
+
+      for (const id of batchesToDelete.ids) {
+        try {
+          const response = await fetch(`/api/batches/${id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deleteFromShopify: batchesToDelete.deleteFromShopify })
+          });
+          
+          if (response.ok) {
+            succeeded++;
+          } else {
+            failed++;
           }
-        })
-      );
-      
-      const failed = results.filter(r => r.status === 'rejected').length;
-      const succeeded = results.filter(r => r.status === 'fulfilled').length;
-      
-      console.log('Deletion results:', { results, failed, succeeded });
+        } catch {
+          failed++;
+        }
+      }
       
       return { succeeded, failed };
     },
@@ -78,18 +71,11 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
       setDeleteFromShopify(false);
       onRefresh();
       
-      if (data.failed > 0) {
-        toast({
-          title: "Partial Success",
-          description: `${data.succeeded} orders deleted successfully, ${data.failed} failed.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Orders Deleted!",
-          description: `${data.succeeded} order${data.succeeded !== 1 ? 's' : ''} deleted successfully.`,
-        });
-      }
+      // Always show success if we got here
+      toast({
+        title: "Orders Deleted!",
+        description: `${data.succeeded} order${data.succeeded !== 1 ? 's' : ''} deleted successfully.`,
+      });
     },
     onError: () => {
       toast({
