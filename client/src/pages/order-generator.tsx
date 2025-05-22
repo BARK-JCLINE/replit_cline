@@ -266,11 +266,27 @@ export default function OrderGenerator() {
     setTemplateName("");
   };
 
-  const handleLoadTemplate = (template: any) => {
-    setOrderConfig({
-      ...template,
-      customTags: template.customTags || [],
-    });
+  const handleLoadTemplate = (template: OrderConfiguration) => {
+    // Create a properly formatted configuration
+    const loadedConfig: InsertOrderConfiguration = {
+      name: template.name,
+      warehouse: template.warehouse,
+      address: template.address,
+      lineItems: Array.isArray(template.lineItems) ? template.lineItems : [{ productId: "", quantity: 1 }],
+      subscriptionType: template.subscriptionType || "",
+      customerSegment: template.customerSegment || "",
+      customTags: Array.isArray(template.customTags) ? template.customTags : [],
+      addressTemplate: template.addressTemplate || "",
+      stateProvince: template.stateProvince || "",
+      orderCount: template.orderCount || 1,
+      customerFirstName: template.customerFirstName || "",
+      customerLastName: template.customerLastName || "",
+      customerEmail: template.customerEmail || "",
+      orderDelay: template.orderDelay || 0,
+    };
+    
+    setOrderConfig(loadedConfig);
+    
     toast({
       title: "Template Loaded!",
       description: `Configuration "${template.name}" has been loaded successfully.`,
