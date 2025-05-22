@@ -59,11 +59,11 @@ export const insertOrderBatchSchema = createInsertSchema(orderBatches, {
   batchId: z.string().min(1),
   orderCount: z.number().min(1).max(100),
   status: z.enum(["pending", "processing", "completed", "failed"]),
-  progress: z.number().min(0).max(100),
 }).omit({
   id: true,
   createdAt: true,
   completedAt: true,
+  progress: true,
 });
 
 export type LineItem = z.infer<typeof lineItemSchema>;
