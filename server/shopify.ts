@@ -199,6 +199,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   const allTags = [
     ...(config.customTags || []),
     "replit",
+    `warehouse_${config.warehouse}`, // Add warehouse location to tags
   ];
   const tags = allTags.join(", ");
 
