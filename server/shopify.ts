@@ -215,6 +215,8 @@ function getLocationIdFromWarehouse(warehouse: string): number | undefined {
 }
 
 export function createShopifyOrderFromConfig(config: OrderConfiguration): ShopifyOrder {
+  console.log("🔧 Creating Shopify order for warehouse:", config.warehouse);
+  
   // Map addresses and use customer details from config
   const getAddressFromConfig = (addressKey: string): ShopifyAddress => {
     const baseAddress = {
@@ -259,6 +261,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   
   // Get the Shopify location ID for the selected warehouse
   const locationId = getLocationIdFromWarehouse(config.warehouse);
+  console.log("🎯 Warehouse mapping:", config.warehouse, "->", locationId);
 
   // Convert line items using customer's line items data
   const lineItems: ShopifyLineItem[] = (config.lineItems as any[]).map((item: any) => ({
