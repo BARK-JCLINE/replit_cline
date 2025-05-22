@@ -9,6 +9,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   ShoppingCart, 
   HelpCircle, 
@@ -50,10 +60,17 @@ export default function OrderGenerator() {
     current: 0,
     total: 0,
   });
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [templateName, setTemplateName] = useState("");
 
   // Fetch order batches for history
   const { data: orderBatches = [], refetch: refetchBatches } = useQuery<OrderBatch[]>({
     queryKey: ["/api/batches"],
+  });
+
+  // Fetch existing configurations for duplicate validation
+  const { data: existingConfigurations = [] } = useQuery({
+    queryKey: ["/api/configurations"],
   });
 
   // Validate configuration mutation
@@ -206,17 +223,40 @@ export default function OrderGenerator() {
   };
 
   const handleSaveTemplate = () => {
-    // Basic validation before saving
-    if (!orderConfig.name.trim()) {
+    setShowSaveDialog(true);
+    setTemplateName(orderConfig.name || "");
+  };
+
+  const handleConfirmSave = () => {
+    // Validate template name
+    if (!templateName.trim()) {
       toast({
         title: "Template Name Required",
-        description: "Please enter a configuration name before saving the template.",
+        description: "Please enter a name for your template.",
         variant: "destructive",
       });
       return;
     }
 
-    saveTemplateMutation.mutate(orderConfig);
+    // Check for duplicate names
+    const isDuplicate = existingConfigurations.some(
+      (config: any) => config.name.toLowerCase() === templateName.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      toast({
+        title: "Template Name Already Exists",
+        description: "A template with this name already exists. Please choose a different name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Save the template with the new name
+    const configToSave = { ...orderConfig, name: templateName };
+    saveTemplateMutation.mutate(configToSave);
+    setShowSaveDialog(false);
+    setTemplateName("");
   };
 
   const handleExportConfig = () => {
@@ -363,6 +403,50 @@ export default function OrderGenerator() {
           <OrderHistory batches={orderBatches} onRefresh={refetchBatches} />
         </div>
       </main>
+
+      {/* Save Template Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Template</DialogTitle>
+            <DialogDescription>
+              Enter a name for your order configuration template. This will allow you to quickly reuse this setup for future orders.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g., BB Subscription - US Orders"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowSaveDialog(false);
+                setTemplateName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmSave}
+              disabled={saveTemplateMutation.isPending}
+            >
+              {saveTemplateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Save Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
