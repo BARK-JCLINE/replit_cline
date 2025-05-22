@@ -88,7 +88,14 @@ export class ShopifyAPI {
     
     console.log("🎯 Order data with assigned_location_id:", modifiedOrderData.assigned_location_id);
     
-    return this.makeRequest("/orders.json", "POST", { order: modifiedOrderData });
+    const response = await this.makeRequest("/orders.json", "POST", { order: modifiedOrderData });
+    
+    // Log what Shopify actually returned to debug warehouse assignment
+    console.log("📋 Shopify response order ID:", response.order?.id);
+    console.log("🏪 Shopify response location_id:", response.order?.location_id);
+    console.log("🏭 Shopify response assigned_location_id:", response.order?.assigned_location_id);
+    
+    return response;
   }
 
   async createFulfillment(orderId: number, locationId: number) {
