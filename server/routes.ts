@@ -6,6 +6,12 @@ import { z } from "zod";
 import { shopifyAPI, createShopifyOrderFromConfig } from "./shopify";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add middleware to ensure API routes are handled first
+  app.use('/api', (req, res, next) => {
+    console.log(`API Route: ${req.method} ${req.path}`);
+    next();
+  });
+
   // Order Configuration routes
   app.get("/api/configurations", async (req, res) => {
     try {
