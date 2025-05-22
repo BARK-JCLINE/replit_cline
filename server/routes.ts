@@ -19,6 +19,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/configurations", async (req, res) => {
     try {
       const validatedData = insertOrderConfigurationSchema.parse(req.body);
+      
+      // Check for duplicate names
+      const existingConfigurations = await storage.getAllOrderConfigurations();
+      const isDuplicate = existingConfigurations.some(
+        (config) => config.name.toLowerCase() === validatedData.name.toLowerCase()
+      );
+      
+      if (isDuplicate) {
+        return res.status(400).json({ 
+          error: "Template name already exists", 
+          message: "A template with this name already exists. Please choose a different name." 
+        });
+      }
+      
       const configuration = await storage.createOrderConfiguration(validatedData);
       res.status(201).json(configuration);
     } catch (error) {
@@ -58,6 +72,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to update configuration" });
       }
+    }
+  });
+
+  app.delete("/api/configurations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteOrderConfiguration(id);
+      if (!success) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      res.json({ success: true, message: "Template deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete configuration" });
     }
   });
 

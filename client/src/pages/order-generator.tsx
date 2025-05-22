@@ -409,7 +409,7 @@ export default function OrderGenerator() {
                               <div className="flex flex-col">
                                 <span className="font-medium">{template.name}</span>
                                 <span className="text-xs text-gray-500">
-                                  {template.warehouse} • {template.address}
+                                  ID: {template.id} • {template.warehouse} • {template.address}
                                 </span>
                               </div>
                             </DropdownMenuItem>
