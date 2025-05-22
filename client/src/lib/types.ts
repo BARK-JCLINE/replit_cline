@@ -59,8 +59,8 @@ export const ORDER_DELAY_OPTIONS: DropdownOption[] = [
 ];
 
 export const SKU_TEMPLATE_OPTIONS: DropdownOption[] = [
-  { value: "bb-subscription", label: "BB Subscription", sku: "BB-SUB-001" },
-  { value: "sc-subscription", label: "SC Subscription", sku: "SC-SUB-001" },
-  { value: "kibble", label: "Kibble", sku: "KIBBLE-001" },
-  { value: "product", label: "Product", sku: "PROD-001" },
+  { value: "bb-subscription", label: "BB Subscription", sku: "B0-A0-B-M" },
+  { value: "sc-subscription", label: "SC Subscription", sku: "S0-A0-B-S" },
+  { value: "kibble", label: "Kibble", sku: "213114" },
+  { value: "product", label: "Product", sku: "209749-LN" },
 ];

@@ -126,7 +126,8 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
               <TableHeader>
                 <TableRow className="bg-gray-50">
                   <TableHead className="font-medium text-gray-700">Timestamp</TableHead>
-                  <TableHead className="font-medium text-gray-700">Batch ID</TableHead>
+                  <TableHead className="font-medium text-gray-700">Shopify Order Name</TableHead>
+                  <TableHead className="font-medium text-gray-700">Shopify ID</TableHead>
                   <TableHead className="font-medium text-gray-700">Orders Created</TableHead>
                   <TableHead className="font-medium text-gray-700">Configuration</TableHead>
                   <TableHead className="font-medium text-gray-700">Status</TableHead>
@@ -134,44 +135,67 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {batches.map((batch) => (
-                  <TableRow key={batch.id} className="hover:bg-gray-50">
-                    <TableCell className="text-gray-900">
-                      {formatTimestamp(batch.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
-                        {batch.batchId}
-                      </code>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {batch.orderCount}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                          {batch.configurationId ? `Config-${batch.configurationId}` : "N/A"}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(batch.status)}
-                        {getStatusBadge(batch.status)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {batches.map((batch) => {
+                  const createdOrders = Array.isArray(batch.createdOrders) ? batch.createdOrders : [];
+                  const firstOrder = createdOrders[0];
+                  
+                  return (
+                    <TableRow key={batch.id} className="hover:bg-gray-50">
+                      <TableCell className="text-gray-900">
+                        {formatTimestamp(batch.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        {firstOrder?.name ? (
+                          <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                            {firstOrder.name}
+                          </code>
+                        ) : (
+                          <span className="text-gray-500 text-sm">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {firstOrder?.id ? (
+                          <code className="bg-blue-50 px-2 py-1 rounded text-xs font-mono text-blue-700">
+                            {firstOrder.id}
+                          </code>
+                        ) : (
+                          <span className="text-gray-500 text-sm">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {batch.orderCount}
+                        {createdOrders.length > 1 && (
+                          <span className="text-xs text-gray-500 ml-1">
+                            (+{createdOrders.length - 1} more)
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                            {batch.configurationId ? `Config-${batch.configurationId}` : "N/A"}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon(batch.status)}
+                          {getStatusBadge(batch.status)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
