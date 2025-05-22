@@ -7,6 +7,7 @@ export interface ShopifyLineItem {
   quantity: number;
   price: string;
   sku?: string;
+  fulfillment_service?: string;
 }
 
 export interface ShopifyOrder {
@@ -76,35 +77,19 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    console.log("🏭 Creating order with warehouse:", orderData.location_id);
-    console.log("🏷️ New approach: Using tags to track warehouse assignment");
+    console.log("🚚 Creating order with fulfillment service approach");
+    console.log("📦 Line items with fulfillment services:", 
+      orderData.line_items.map(item => item.fulfillment_service));
     
-    const savedLocationId = orderData.location_id;
-    delete orderData.location_id;
-    
-    // Add warehouse info to tags for tracking
-    const warehouseName = this.getWarehouseNameFromId(savedLocationId);
-    const existingTags = orderData.tags ? orderData.tags.split(", ") : [];
-    existingTags.push(`WAREHOUSE:${warehouseName}`);
-    existingTags.push(`LOCATION_ID:${savedLocationId}`);
-    orderData.tags = existingTags.join(", ");
-    
-    console.log("🎯 Creating order with warehouse tags:", orderData.tags);
     const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
     
     console.log("📋 Order created:", response.order?.id);
     console.log("🏪 Shopify assigned location_id:", response.order?.location_id);
-    console.log("🏷️ Order tags with warehouse info:", response.order?.tags);
-    
-    // Now use the tags to actually update the location
-    if (response.order?.id && savedLocationId) {
-      try {
-        console.log("🔄 Step 2: Using tags to update order location to:", savedLocationId);
-        await this.updateOrderLocationFromTags(response.order.id, savedLocationId);
-      } catch (error) {
-        console.error("❌ Failed to update location from tags:", error);
-      }
-    }
+    console.log("🚚 Line item fulfillment services:", 
+      response.order?.line_items?.map(item => ({
+        id: item.id,
+        fulfillment_service: item.fulfillment_service
+      })));
     
     return response;
   }
@@ -384,14 +369,17 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   const locationId = getLocationIdFromWarehouse(config.warehouse);
   console.log("🎯 Warehouse mapping:", config.warehouse, "->", locationId);
 
-  // Convert line items using customer's line items data
+  // Get the specific fulfillment service for the warehouse
+  const fulfillmentService = getFulfillmentServiceFromWarehouse(config.warehouse);
+  console.log("🚚 Using fulfillment service:", fulfillmentService, "for warehouse:", config.warehouse);
+
+  // Convert line items using customer's line items data with specific fulfillment service
   const lineItems: ShopifyLineItem[] = (config.lineItems as any[]).map((item: any) => ({
     title: `Product ${item.productId}`,
     quantity: item.quantity,
     price: "10.00", // Default price - will be updated when we find actual product
     sku: item.productId,
-    fulfillment_service: "manual", // Force manual fulfillment to allow location selection
-    ...(locationId && { fulfillment_location_id: locationId }), // Add location to line item
+    fulfillment_service: fulfillmentService, // Use specific OM fulfillment service
   }));
 
   // Create tags from configuration (only use customTags, not subscriptionType)
