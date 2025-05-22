@@ -93,12 +93,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // First check if there are any batches using this configuration
       const allBatches = await storage.getAllOrderBatches();
       const linkedBatches = allBatches.filter(batch => batch.configurationId === id);
+      console.log(`Found ${linkedBatches.length} batches linked to configuration ${id}`);
       
       if (linkedBatches.length > 0) {
+        console.log(`Unlinking ${linkedBatches.length} batches from configuration ${id}`);
         // Update batches to remove the configuration reference instead of deleting
         for (const batch of linkedBatches) {
+          console.log(`Updating batch ${batch.id} to remove config reference`);
           await storage.updateOrderBatch(batch.id, { configurationId: null });
         }
+        console.log(`Successfully unlinked all batches from configuration ${id}`);
       }
       
       const success = await storage.deleteOrderConfiguration(id);
