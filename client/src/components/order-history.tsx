@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -9,9 +11,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { History, Download, Trash2, Eye, RotateCcw, CheckCircle, XCircle } from "lucide-react";
 import type { OrderBatch } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface OrderHistoryProps {
   batches: OrderBatch[];
@@ -20,6 +32,60 @@ interface OrderHistoryProps {
 
 export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedBatches, setSelectedBatches] = useState<number[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteFromShopify, setDeleteFromShopify] = useState(false);
+
+  // Delete batches mutation
+  const deleteBatchesMutation = useMutation({
+    mutationFn: async (batchesToDelete: { ids: number[], deleteFromShopify: boolean }) => {
+      const results = await Promise.allSettled(
+        batchesToDelete.ids.map(id => 
+          fetch(`/api/batches/${id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deleteFromShopify: batchesToDelete.deleteFromShopify })
+          }).then(res => {
+            if (!res.ok) throw new Error(`Failed to delete batch ${id}`);
+            return res.json();
+          })
+        )
+      );
+      
+      const failed = results.filter(r => r.status === 'rejected').length;
+      const succeeded = results.filter(r => r.status === 'fulfilled').length;
+      
+      return { succeeded, failed };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
+      setSelectedBatches([]);
+      setDeleteDialogOpen(false);
+      setDeleteFromShopify(false);
+      onRefresh();
+      
+      if (data.failed > 0) {
+        toast({
+          title: "Partial Success",
+          description: `${data.succeeded} orders deleted successfully, ${data.failed} failed.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Orders Deleted!",
+          description: `${data.succeeded} order${data.succeeded !== 1 ? 's' : ''} deleted successfully.`,
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete selected orders. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleExportHistory = () => {
     const historyJson = JSON.stringify(batches, null, 2);
@@ -37,11 +103,31 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
     });
   };
 
-  const handleClearHistory = () => {
-    // In a real app, this would call an API to clear history
-    toast({
-      title: "Clear History",
-      description: "This would clear all order history (not implemented in demo).",
+  const handleSelectAll = () => {
+    if (selectedBatches.length === batches.length) {
+      setSelectedBatches([]);
+    } else {
+      setSelectedBatches(batches.map(batch => batch.id));
+    }
+  };
+
+  const handleBatchSelect = (batchId: number) => {
+    setSelectedBatches(prev => 
+      prev.includes(batchId) 
+        ? prev.filter(id => id !== batchId)
+        : [...prev, batchId]
+    );
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedBatches.length === 0) return;
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    deleteBatchesMutation.mutate({ 
+      ids: selectedBatches, 
+      deleteFromShopify 
     });
   };
 
@@ -91,6 +177,11 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
             <History className="text-blue-600 mr-2 h-5 w-5" />
             Order Creation History
+            {selectedBatches.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {selectedBatches.length} selected
+              </Badge>
+            )}
           </h2>
           <div className="flex space-x-2">
             <Button
@@ -105,11 +196,20 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleClearHistory}
-              disabled={batches.length === 0}
+              onClick={onRefresh}
+            >
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDeleteSelected}
+              disabled={selectedBatches.length === 0}
+              className="text-red-600 hover:text-red-700 disabled:text-gray-400"
             >
               <Trash2 className="h-4 w-4 mr-1" />
-              Clear
+              Clear ({selectedBatches.length})
             </Button>
           </div>
         </div>
