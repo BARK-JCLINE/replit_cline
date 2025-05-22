@@ -3,7 +3,7 @@ import { Eye } from "lucide-react";
 import type { InsertOrderConfiguration } from "@shared/schema";
 import {
   WAREHOUSE_OPTIONS,
-  SHIPPING_REGION_OPTIONS,
+  ADDRESS_OPTIONS,
   SUBSCRIPTION_TYPE_OPTIONS,
 } from "@/lib/types";
 
@@ -33,9 +33,9 @@ export function OrderPreview({ config }: OrderPreviewProps) {
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Region:</span>
+            <span className="text-gray-600">Address:</span>
             <span className="font-medium">
-              {getOptionLabel(SHIPPING_REGION_OPTIONS, config.shippingRegion)}
+              {getOptionLabel(ADDRESS_OPTIONS, config.address)}
             </span>
           </div>
           <div className="flex justify-between">

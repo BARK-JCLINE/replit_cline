@@ -109,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const order = {
           id: orderId,
           warehouse: configuration.warehouse,
-          shippingRegion: configuration.shippingRegion,
+          address: configuration.address,
           lineItems: configuration.lineItems,
           tags: [
             configuration.subscriptionType,

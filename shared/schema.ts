@@ -6,7 +6,7 @@ export const orderConfigurations = pgTable("order_configurations", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   warehouse: text("warehouse").notNull(),
-  shippingRegion: text("shipping_region").notNull(),
+  address: text("address").notNull(),
   lineItems: jsonb("line_items").notNull(),
   subscriptionType: text("subscription_type"),
   customerSegment: text("customer_segment"),
@@ -42,7 +42,7 @@ export const lineItemSchema = z.object({
 export const insertOrderConfigurationSchema = createInsertSchema(orderConfigurations, {
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required"),
   warehouse: z.string().min(1, "Warehouse is required"),
-  shippingRegion: z.string().min(1, "Shipping region is required"),
+  address: z.string().min(1, "Address is required"),
   orderCount: z.number().min(1).max(100),
   orderDelay: z.number().min(0).max(60),
 }).omit({

@@ -29,7 +29,7 @@ export default function OrderGenerator() {
   const [orderConfig, setOrderConfig] = useState<InsertOrderConfiguration>({
     name: "Test Configuration",
     warehouse: "",
-    shippingRegion: "",
+    address: "",
     lineItems: [{ productId: "", quantity: 1 }],
     subscriptionType: "",
     customerSegment: "",

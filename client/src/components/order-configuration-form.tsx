@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { Warehouse, Box, Tags, MapPin, Copy, Plus, Trash2 } from "lucide-react";
 import {
   WAREHOUSE_OPTIONS,
-  SHIPPING_REGION_OPTIONS,
+  ADDRESS_OPTIONS,
   PRODUCT_OPTIONS,
   SUBSCRIPTION_TYPE_OPTIONS,
   CUSTOMER_SEGMENT_OPTIONS,
@@ -108,18 +108,18 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
             
             <FormField
               control={form.control}
-              name="shippingRegion"
+              name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Shipping Region</FormLabel>
+                  <FormLabel>Address</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select region..." />
+                        <SelectValue placeholder="Select address..." />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {SHIPPING_REGION_OPTIONS.map((option) => (
+                      {ADDRESS_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>

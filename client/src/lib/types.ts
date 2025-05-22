@@ -10,9 +10,9 @@ export const WAREHOUSE_OPTIONS: DropdownOption[] = [
   { value: "wh-ca-west", label: "Canada West (Vancouver)" },
 ];
 
-export const SHIPPING_REGION_OPTIONS: DropdownOption[] = [
-  { value: "us", label: "United States" },
-  { value: "ca", label: "Canada" },
+export const ADDRESS_OPTIONS: DropdownOption[] = [
+  { value: "us-columbus", label: "500 W Broad St, Columbus OH, 43215" },
+  { value: "ca-ottawa", label: "123 Maple Grove Rd, Ottawa ON, K2P 1L4" },
 ];
 
 export const PRODUCT_OPTIONS: DropdownOption[] = [
