@@ -76,19 +76,7 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
-    
-    // If order creation was successful and we have a location_id, create a fulfillment
-    if (response.order && orderData.location_id) {
-      try {
-        await this.createFulfillment(response.order.id, orderData.location_id);
-      } catch (error) {
-        console.error("Failed to create fulfillment with specific location:", error);
-        // Don't fail the order creation if fulfillment assignment fails
-      }
-    }
-    
-    return response;
+    return this.makeRequest("/orders.json", "POST", { order: orderData });
   }
 
   async createFulfillment(orderId: number, locationId: number) {
@@ -228,6 +216,9 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
 
   const address = getAddressFromConfig(config.address);
   
+  // Get the Shopify location ID for the selected warehouse
+  const locationId = getLocationIdFromWarehouse(config.warehouse);
+
   // Convert line items using customer's line items data
   const lineItems: ShopifyLineItem[] = (config.lineItems as any[]).map((item: any) => ({
     title: `Product ${item.productId}`,
@@ -235,6 +226,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     price: "10.00", // Default price - will be updated when we find actual product
     sku: item.productId,
     fulfillment_service: "manual", // Force manual fulfillment to allow location selection
+    ...(locationId && { fulfillment_location_id: locationId }), // Add location to line item
   }));
 
   // Create tags from configuration (only use customTags, not subscriptionType)
