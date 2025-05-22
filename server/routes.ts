@@ -330,6 +330,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete order batch
+  app.delete("/api/batches/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      console.log(`Attempting to delete batch with ID: ${id}`);
+      
+      const success = await storage.deleteOrderBatch(id);
+      if (!success) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      
+      res.json({ success: true, message: "Batch deleted successfully" });
+    } catch (error) {
+      console.error('Delete batch error:', error);
+      res.status(500).json({ error: "Failed to delete batch" });
+    }
+  });
+
+  // Delete order (with optional Shopify deletion)
+  app.delete("/api/orders/:orderId", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const { deleteFromShopify } = req.body;
+      
+      console.log(`Attempting to delete order ${orderId}, deleteFromShopify: ${deleteFromShopify}`);
+      
+      if (deleteFromShopify) {
+        try {
+          await shopifyAPI.deleteOrder(orderId);
+        } catch (shopifyError) {
+          console.error('Failed to delete from Shopify:', shopifyError);
+          return res.status(500).json({ 
+            error: "Failed to delete order from Shopify",
+            message: "Order may still exist in local history but could not be removed from Shopify store"
+          });
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        message: deleteFromShopify ? 
+          "Order deleted from both tool and Shopify store" : 
+          "Order deleted from tool history"
+      });
+    } catch (error) {
+      console.error('Delete order error:', error);
+      res.status(500).json({ error: "Failed to delete order" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
