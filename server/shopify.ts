@@ -77,23 +77,38 @@ export class ShopifyAPI {
 
   async createOrder(orderData: ShopifyOrder) {
     console.log("🏭 Creating order with location_id:", orderData.location_id);
-    console.log("📦 Skipping draft approach, creating direct order with assigned_location_id");
+    console.log("📦 Creating order with manual fulfillment to control warehouse");
     
-    // Create a modified order data that uses assigned_location_id instead
+    // Create order with manual fulfillment to prevent auto-assignment
     const modifiedOrderData = {
       ...orderData,
-      assigned_location_id: orderData.location_id
+      fulfillment_status: null,
+      line_items: orderData.line_items.map(item => ({
+        ...item,
+        fulfillment_service: "manual"
+      }))
     };
+    
+    const savedLocationId = orderData.location_id;
     delete modifiedOrderData.location_id;
     
-    console.log("🎯 Order data with assigned_location_id:", modifiedOrderData.assigned_location_id);
+    console.log("🎯 Creating order with manual fulfillment, then assigning location:", savedLocationId);
     
     const response = await this.makeRequest("/orders.json", "POST", { order: modifiedOrderData });
     
-    // Log what Shopify actually returned to debug warehouse assignment
-    console.log("📋 Shopify response order ID:", response.order?.id);
-    console.log("🏪 Shopify response location_id:", response.order?.location_id);
-    console.log("🏭 Shopify response assigned_location_id:", response.order?.assigned_location_id);
+    console.log("📋 Order created:", response.order?.id);
+    console.log("🏪 Initial location_id:", response.order?.location_id);
+    
+    // Immediately create fulfillment with our desired location
+    if (savedLocationId && response.order?.id) {
+      try {
+        console.log("🚚 Creating fulfillment for location:", savedLocationId);
+        await this.createFulfillment(response.order.id, savedLocationId);
+        console.log("✅ Fulfillment created successfully with BBH location!");
+      } catch (fulfillmentError) {
+        console.error("❌ Fulfillment failed:", fulfillmentError);
+      }
+    }
     
     return response;
   }
