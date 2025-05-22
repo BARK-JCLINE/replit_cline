@@ -208,6 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const order = {
             id: shopifyResponse.order.id,
+            name: shopifyResponse.order.name, // This contains the BARK-XXXXXX format
             shopify_order_number: shopifyResponse.order.order_number,
             warehouse: configuration.warehouse,
             address: configuration.address,
