@@ -80,8 +80,9 @@ export class ShopifyAPI {
     try {
       console.log("🔧 Creating Shopify order for warehouse:", orderData.tags);
       
-      // Get location ID from warehouse tag
-      const warehouse = orderData.tags?.split(':')[1]?.trim();
+      // Get location ID from warehouse tag (format: "contains_kibble, replit, warehouse_om-bbh")
+      const warehouseTag = orderData.tags?.split(',').find(tag => tag.trim().startsWith('warehouse_'));
+      const warehouse = warehouseTag?.trim().replace('warehouse_', '');
       const locationId = warehouse ? getLocationIdFromWarehouse(warehouse) : undefined;
       console.log("🎯 Warehouse mapping:", warehouse, "->", locationId);
 
