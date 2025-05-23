@@ -115,7 +115,10 @@ export class ShopifyAPI {
       
       console.log("📝 Draft order created:", draftResponse.draft_order.id);
       
-      // Step 2: Complete the draft order to make it a real order
+      // Step 2: Wait for Shopify to finish calculating, then complete the draft order
+      console.log("⏳ Waiting for Shopify to finish calculating...");
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+      
       const response = await this.makeRequest(`/draft_orders/${draftResponse.draft_order.id}/complete.json`, "PUT", {});
       
       if (!response.order) {
