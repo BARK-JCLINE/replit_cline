@@ -149,25 +149,22 @@ export class ShopifyAPI {
                 try {
                   await this.moveToLocation(fulfillmentOrder.id, locationId);
                   console.log("✅ Fulfillment order moved to:", this.getWarehouseNameFromId(locationId));
+                  console.log("🔍 DEBUG: About to start fulfillment creation process...");
                   
                   // Add a small delay to ensure the move is processed
                   console.log("⏳ Waiting for fulfillment order move to be processed...");
                   await new Promise(resolve => setTimeout(resolve, 500));
                   
-                  // Now create a fulfillment from the correct location
+                  // Now fulfill the fulfillment order from the correct location
                   console.log("📦 Creating fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
-                  console.log("🔧 Order ID:", response.order.id, "Location ID:", locationId);
+                  console.log("🔧 Fulfillment Order ID:", fulfillmentOrder.id, "Location ID:", locationId);
                   
                   try {
-                    const fulfillment = await this.createFulfillment(
-                      response.order.id, 
-                      locationId, 
-                      response.order.line_items
-                    );
+                    const fulfillment = await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
                     console.log("✅ Order fulfilled from:", this.getWarehouseNameFromId(locationId));
                     console.log("🎯 Fulfillment created:", fulfillment);
                   } catch (fulfillError) {
-                    console.error("⚠️ Failed to create fulfillment:", fulfillError);
+                    console.error("⚠️ Failed to fulfill from location:", fulfillError);
                     console.error("⚠️ Error details:", JSON.stringify(fulfillError, null, 2));
                   }
                   
