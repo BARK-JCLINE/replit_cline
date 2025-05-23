@@ -302,9 +302,25 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          {firstOrder?.id ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                // Open Shopify order in new tab
+                                const shopifyDomain = "barkbox-qa.myshopify.com"; // Replace with your actual domain
+                                const orderUrl = `https://${shopifyDomain}/admin/orders/${firstOrder.id}`;
+                                window.open(orderUrl, '_blank');
+                              }}
+                              title="View order in Shopify"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" disabled>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm">
                             <RotateCcw className="h-4 w-4" />
                           </Button>

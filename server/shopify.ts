@@ -97,7 +97,7 @@ export class ShopifyAPI {
       console.log("🏪 Initial location_id:", response.order.location_id);
       
       // Step 2: If we have a specific warehouse, create fulfillment to override location
-      if (locationId && locationId !== response.order.location_id) {
+      if (locationId) {
         console.log("🚚 Creating fulfillment to assign to location:", locationId);
         
         try {
