@@ -102,11 +102,23 @@ export class ShopifyAPI {
         console.log("🚚 Managing fulfillment for warehouse:", this.getWarehouseNameFromId(locationId));
         
         try {
-          // Get fulfillment orders for this order
+          // First check for existing fulfillments (if automatic fulfillment is enabled)
+          const existingFulfillments = await this.getFulfillments(response.order.id);
+          console.log("📦 Found existing fulfillments:", existingFulfillments.length);
+          
+          // Cancel any automatic fulfillments that were created
+          for (const fulfillment of existingFulfillments) {
+            if (fulfillment.status !== "cancelled") {
+              console.log("❌ Cancelling automatic fulfillment:", fulfillment.id);
+              await this.cancelFulfillment(response.order.id, fulfillment.id);
+            }
+          }
+          
+          // Now get fulfillment orders for this order
           const fulfillmentOrders = await this.getFulfillmentOrders(response.order.id);
           console.log("📦 Found fulfillment orders:", fulfillmentOrders.length);
           
-          // Instead of cancelling, move the fulfillment order to the correct location
+          // Work with the fulfillment orders
           for (const fulfillmentOrder of fulfillmentOrders) {
             if (fulfillmentOrder.status === "open" || fulfillmentOrder.status === "scheduled") {
               console.log("🔄 Moving fulfillment order", fulfillmentOrder.id, "to location:", locationId);
