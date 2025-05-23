@@ -46,7 +46,7 @@ export class ShopifyAPI {
   constructor() {
     this.baseUrl = "https://dev-bark-co.myshopify.com";
     this.accessToken = process.env.access_token || "";
-    this.apiVersion = "2024-07";
+    this.apiVersion = "2024-01";
   }
 
   private async makeRequest(endpoint: string, method: string = "GET", data?: any) {
