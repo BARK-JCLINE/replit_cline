@@ -250,8 +250,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Fulfill the order after creation
           try {
             console.log("🚚 Attempting to fulfill order:", shopifyResponse.order.id, "from warehouse:", configuration.warehouse);
-            await shopifyAPI.fulfillOrderFromWarehouse(shopifyResponse.order.id, configuration.warehouse);
-            console.log("✅ Order fulfilled successfully");
+            
+            // Get fulfillment orders for this order
+            const fulfillmentOrders = await shopifyAPI.getFulfillmentOrders(shopifyResponse.order.id);
+            
+            if (fulfillmentOrders.length > 0) {
+              const fulfillmentOrder = fulfillmentOrders[0];
+              console.log("📦 Requesting fulfillment for fulfillment order:", fulfillmentOrder.id);
+              
+              await shopifyAPI.makeRequest(`/fulfillment_orders/${fulfillmentOrder.id}/fulfillment_request.json`, "POST", {
+                fulfillment_request: {
+                  message: "Request fulfillment from warehouse"
+                }
+              });
+              
+              console.log("✅ Order fulfillment requested successfully");
+            }
           } catch (fulfillError) {
             console.error("⚠️ Failed to fulfill order:", fulfillError);
             // Don't fail the entire process if fulfillment fails
