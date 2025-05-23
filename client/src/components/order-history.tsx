@@ -308,8 +308,7 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                               size="sm"
                               onClick={() => {
                                 // Open Shopify order in new tab
-                                const shopifyDomain = "barkbox-qa.myshopify.com"; // Replace with your actual domain
-                                const orderUrl = `https://${shopifyDomain}/admin/orders/${firstOrder.id}`;
+                                const orderUrl = `https://admin.shopify.com/store/dev-bark-co/orders/${firstOrder.id}`;
                                 window.open(orderUrl, '_blank');
                               }}
                               title="View order in Shopify"

@@ -96,21 +96,23 @@ export class ShopifyAPI {
       console.log("📋 Order created:", response.order.id);
       console.log("🏪 Initial location_id:", response.order.location_id);
       
-      // Step 2: If we have a specific warehouse, create fulfillment to override location
+      // Step 2: If we have a specific warehouse, try to update the order location
       if (locationId) {
-        console.log("🚚 Creating fulfillment to assign to location:", locationId);
+        console.log("🔄 Attempting to update order location to:", locationId);
         
         try {
-          const fulfillmentResult = await this.createFulfillment(
-            response.order.id, 
-            locationId, 
-            response.order.line_items
-          );
-          console.log("✅ Fulfillment created successfully!");
+          // Try direct order update approach
+          const updateResponse = await this.makeRequest(`/orders/${response.order.id}.json`, "PUT", {
+            order: { 
+              location_id: locationId,
+              assigned_location_id: locationId 
+            }
+          });
+          console.log("✅ Order location updated successfully!");
           console.log("🎯 Final warehouse assignment:", this.getWarehouseNameFromId(locationId));
-        } catch (fulfillmentError) {
-          console.error("⚠️ Fulfillment creation failed:", fulfillmentError);
-          console.log("📦 Order still exists but may be at default location");
+        } catch (updateError) {
+          console.error("⚠️ Order location update failed:", updateError);
+          console.log("📦 Order created but may be at default location");
         }
       }
       
