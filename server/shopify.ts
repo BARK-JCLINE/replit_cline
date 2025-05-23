@@ -86,8 +86,37 @@ export class ShopifyAPI {
       const locationId = warehouse ? getLocationIdFromWarehouse(warehouse) : undefined;
       console.log("🎯 Warehouse mapping:", warehouse, "->", locationId);
 
-      // Step 1: Create the order normally (let Shopify assign default location)
-      const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
+      // Step 1: Create as draft order first with location specified
+      const draftOrderData = {
+        ...orderData,
+        draft_order: true,
+        applied_discount: null,
+        shipping_address: orderData.shipping_address,
+        billing_address: orderData.billing_address,
+        line_items: orderData.line_items.map(item => ({
+          ...item,
+          grams: 100,
+          requires_shipping: true
+        }))
+      };
+      
+      if (locationId) {
+        draftOrderData.location_id = locationId;
+        console.log("🎯 Creating draft order with location_id:", locationId);
+      }
+
+      const draftResponse = await this.makeRequest("/draft_orders.json", "POST", { 
+        draft_order: draftOrderData 
+      });
+      
+      if (!draftResponse.draft_order) {
+        throw new Error("Draft order creation failed");
+      }
+      
+      console.log("📝 Draft order created:", draftResponse.draft_order.id);
+      
+      // Step 2: Complete the draft order to make it a real order
+      const response = await this.makeRequest(`/draft_orders/${draftResponse.draft_order.id}/complete.json`, "PUT", {});
       
       if (!response.order) {
         throw new Error("Order creation failed - no order returned");
@@ -96,35 +125,9 @@ export class ShopifyAPI {
       console.log("📋 Order created:", response.order.id);
       console.log("🏪 Initial location_id:", response.order.location_id);
       
-      // Step 2: If we have a specific warehouse, try inventory-based assignment
-      if (locationId) {
-        console.log("📦 Attempting inventory-based warehouse assignment to:", locationId);
-        
-        try {
-          // Get the product variants from the order
-          const lineItems = response.order.line_items;
-          
-          for (const item of lineItems) {
-            if (item.variant_id) {
-              console.log(`🔄 Setting inventory for variant ${item.variant_id} at location ${locationId}`);
-              
-              // Try to set inventory at the target location
-              await this.makeRequest(`/inventory_levels/set.json`, "POST", {
-                location_id: locationId,
-                inventory_item_id: item.variant_id,
-                available: 100 // Ensure stock is available at target location
-              });
-              
-              console.log(`✅ Inventory set for variant ${item.variant_id}`);
-            }
-          }
-          
-          console.log("🎯 Inventory-based assignment completed for:", this.getWarehouseNameFromId(locationId));
-        } catch (inventoryError) {
-          console.error("⚠️ Inventory assignment failed:", inventoryError);
-          console.log("📦 Order created but location assignment may have failed");
-        }
-      }
+      console.log("📋 Order completed from draft!");
+      console.log("🏪 Final location_id:", response.order?.location_id);
+      console.log("🎯 Warehouse assignment:", locationId ? this.getWarehouseNameFromId(locationId) : "Default");
       
       return response;
     } catch (error) {
