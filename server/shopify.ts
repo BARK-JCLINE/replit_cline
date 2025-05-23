@@ -150,6 +150,7 @@ export class ShopifyAPI {
                   await this.moveToLocation(fulfillmentOrder.id, locationId);
                   console.log("✅ Fulfillment order moved to:", this.getWarehouseNameFromId(locationId));
                   console.log("🔍 DEBUG: About to start fulfillment creation process...");
+                  console.log("🔍 DEBUG: Code execution reaching fulfillment section...");
                   
                   // Add a small delay to ensure the move is processed
                   console.log("⏳ Waiting for fulfillment order move to be processed...");
