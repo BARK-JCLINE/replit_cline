@@ -394,6 +394,59 @@ export class ShopifyAPI {
     return this.makeRequest(`/orders/${orderId}/fulfillments.json`, "POST", fulfillmentData);
   }
 
+  async fulfillOrderFromWarehouse(orderId: number, warehouse: string) {
+    try {
+      console.log("🔧 Starting fulfillment process for order:", orderId, "warehouse:", warehouse);
+      
+      // Get location ID from warehouse
+      const locationId = getLocationIdFromWarehouse(warehouse);
+      if (!locationId) {
+        throw new Error(`Unknown warehouse: ${warehouse}`);
+      }
+      
+      console.log("🎯 Warehouse mapping:", warehouse, "->", locationId);
+      
+      // Get fulfillment orders for this order
+      const fulfillmentOrders = await this.getFulfillmentOrders(orderId);
+      console.log("📦 Found fulfillment orders:", fulfillmentOrders.length);
+      
+      if (fulfillmentOrders.length === 0) {
+        throw new Error("No fulfillment orders found for this order");
+      }
+      
+      // Process each fulfillment order
+      for (const fulfillmentOrder of fulfillmentOrders) {
+        if (fulfillmentOrder.status === "open" || fulfillmentOrder.status === "scheduled") {
+          console.log("🔄 Moving fulfillment order", fulfillmentOrder.id, "to location:", locationId);
+          
+          try {
+            // Move to correct location
+            await this.moveToLocation(fulfillmentOrder.id, locationId);
+            console.log("✅ Moved to warehouse:", this.getWarehouseNameFromId(locationId));
+            
+            // Wait a moment for the move to process
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Fulfill from the location
+            console.log("📦 Creating fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
+            const fulfillment = await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
+            console.log("✅ Order fulfilled from:", this.getWarehouseNameFromId(locationId));
+            
+            return fulfillment;
+            
+          } catch (error) {
+            console.error("⚠️ Failed to process fulfillment order:", error);
+            throw error;
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error("❌ Fulfillment process failed:", error);
+      throw error;
+    }
+  }
+
   async getProducts(limit: number = 50) {
     return this.makeRequest(`/products.json?limit=${limit}`);
   }

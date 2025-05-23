@@ -247,6 +247,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           createdOrders.push(order);
 
+          // Fulfill the order after creation
+          try {
+            console.log("🚚 Attempting to fulfill order:", shopifyResponse.order.id, "from warehouse:", configuration.warehouse);
+            await shopifyAPI.fulfillOrderFromWarehouse(shopifyResponse.order.id, configuration.warehouse);
+            console.log("✅ Order fulfilled successfully");
+          } catch (fulfillError) {
+            console.error("⚠️ Failed to fulfill order:", fulfillError);
+            // Don't fail the entire process if fulfillment fails
+          }
+
           // Update progress
           const progress = Math.round(((i + 1) / orderCount) * 100);
           await storage.updateOrderBatchProgress(batchId, progress);
