@@ -75,9 +75,14 @@ export default function OrderGenerator() {
   const [templateToDelete, setTemplateToDelete] = useState<{ id: number; name: string } | null>(null);
 
   // Fetch order batches for history
-  const { data: orderBatches = [], refetch: refetchBatches } = useQuery<OrderBatch[]>({
+  const { data: batchesData = [], refetch: refetchBatches } = useQuery<OrderBatch[]>({
     queryKey: ["/api/batches"],
   });
+
+  // Sort batches by creation time (newest first)
+  const orderBatches = [...batchesData].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   // Fetch existing configurations for duplicate validation
   const { data: existingConfigurations = [] } = useQuery<OrderConfiguration[]>({
