@@ -97,6 +97,38 @@ export class ShopifyAPI {
       console.log("🏪 Shopify assigned location_id:", response.order.location_id);
       console.log("🎯 Warehouse from tags:", warehouse);
       
+      // Step 2: If we have a specific warehouse, manage fulfillment manually
+      if (locationId) {
+        console.log("🚚 Managing fulfillment for warehouse:", this.getWarehouseNameFromId(locationId));
+        
+        try {
+          // Get fulfillment orders for this order
+          const fulfillmentOrders = await this.getFulfillmentOrders(response.order.id);
+          console.log("📦 Found fulfillment orders:", fulfillmentOrders.length);
+          
+          // Cancel any existing fulfillment orders if they exist
+          for (const fulfillmentOrder of fulfillmentOrders) {
+            if (fulfillmentOrder.status !== "cancelled") {
+              console.log("❌ Cancelling fulfillment order:", fulfillmentOrder.id);
+              await this.cancelFulfillmentOrder(fulfillmentOrder.id);
+            }
+          }
+          
+          // Create new fulfillment from the correct warehouse
+          console.log("✅ Creating fulfillment from location:", locationId);
+          const fulfillment = await this.createFulfillment(
+            response.order.id, 
+            locationId, 
+            response.order.line_items
+          );
+          console.log("🎯 Fulfillment created successfully from:", this.getWarehouseNameFromId(locationId));
+          
+        } catch (fulfillmentError) {
+          console.error("⚠️ Fulfillment management failed:", fulfillmentError);
+          console.log("📦 Order created but fulfillment may need manual assignment");
+        }
+      }
+      
       return response;
     } catch (error) {
       console.error("❌ Error in createOrder:", error);
@@ -177,6 +209,26 @@ export class ShopifyAPI {
     } catch (error) {
       console.log("📋 No existing fulfillments found");
       return [];
+    }
+  }
+
+  async getFulfillmentOrders(orderId: number) {
+    try {
+      const response = await this.makeRequest(`/orders/${orderId}/fulfillment_orders.json`);
+      return response.fulfillment_orders || [];
+    } catch (error) {
+      console.error("Error fetching fulfillment orders:", error);
+      return [];
+    }
+  }
+
+  async cancelFulfillmentOrder(fulfillmentOrderId: number) {
+    try {
+      const response = await this.makeRequest(`/fulfillment_orders/${fulfillmentOrderId}/cancel.json`, "POST");
+      return response;
+    } catch (error) {
+      console.error("Error cancelling fulfillment order:", error);
+      throw error;
     }
   }
 
