@@ -377,15 +377,18 @@ export class ShopifyAPI {
   }
 
   async createFulfillment(orderId: number, locationId: number, lineItems?: any[]) {
+    // Get fresh order data to ensure we have correct line item IDs
+    const orderData = await this.makeRequest(`/orders/${orderId}.json`);
+    const orderLineItems = orderData.order.line_items;
+    
     const fulfillmentData = {
       fulfillment: {
         location_id: locationId,
         notify_customer: false,
-        tracking_numbers: [],
-        line_items: lineItems ? lineItems.map(item => ({ 
+        line_items: orderLineItems.map((item: any) => ({ 
           id: item.id, 
           quantity: item.quantity 
-        })) : []
+        }))
       }
     };
     
