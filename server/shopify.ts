@@ -102,7 +102,11 @@ export class ShopifyAPI {
         console.log("🚚 Managing fulfillment for warehouse:", this.getWarehouseNameFromId(locationId));
         
         try {
-          // First check for existing fulfillments (if automatic fulfillment is enabled)
+          // Wait a moment for any automatic fulfillments to be created
+          console.log("⏳ Waiting for automatic fulfillments to process...");
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Check for existing fulfillments (if automatic fulfillment is enabled)
           const existingFulfillments = await this.getFulfillments(response.order.id);
           console.log("📦 Found existing fulfillments:", existingFulfillments.length);
           
@@ -110,7 +114,12 @@ export class ShopifyAPI {
           for (const fulfillment of existingFulfillments) {
             if (fulfillment.status !== "cancelled") {
               console.log("❌ Cancelling automatic fulfillment:", fulfillment.id);
-              await this.cancelFulfillment(response.order.id, fulfillment.id);
+              try {
+                await this.cancelFulfillment(response.order.id, fulfillment.id);
+                console.log("✅ Automatic fulfillment cancelled successfully");
+              } catch (cancelError) {
+                console.error("⚠️ Failed to cancel fulfillment:", cancelError);
+              }
             }
           }
           
@@ -118,22 +127,35 @@ export class ShopifyAPI {
           const fulfillmentOrders = await this.getFulfillmentOrders(response.order.id);
           console.log("📦 Found fulfillment orders:", fulfillmentOrders.length);
           
-          // Work with the fulfillment orders
-          for (const fulfillmentOrder of fulfillmentOrders) {
-            if (fulfillmentOrder.status === "open" || fulfillmentOrder.status === "scheduled") {
-              console.log("🔄 Moving fulfillment order", fulfillmentOrder.id, "to location:", locationId);
-              
-              // Try to move the fulfillment order to the correct location
-              try {
-                await this.moveToLocation(fulfillmentOrder.id, locationId);
-                console.log("✅ Fulfillment order moved to:", this.getWarehouseNameFromId(locationId));
-              } catch (moveError) {
-                console.error("⚠️ Failed to move fulfillment order:", moveError);
+          // After cancelling automatic fulfillments, create new one from correct location
+          if (existingFulfillments.length > 0) {
+            console.log("🚚 Creating new fulfillment from correct location:", locationId);
+            try {
+              const newFulfillment = await this.createFulfillment(
+                response.order.id, 
+                locationId, 
+                response.order.line_items
+              );
+              console.log("✅ New fulfillment created from:", this.getWarehouseNameFromId(locationId));
+            } catch (createError) {
+              console.error("⚠️ Failed to create new fulfillment:", createError);
+            }
+          } else {
+            // No automatic fulfillments, work with fulfillment orders
+            for (const fulfillmentOrder of fulfillmentOrders) {
+              if (fulfillmentOrder.status === "open" || fulfillmentOrder.status === "scheduled") {
+                console.log("🔄 Moving fulfillment order", fulfillmentOrder.id, "to location:", locationId);
                 
-                // If moving fails, try fulfilling directly from the correct location
-                console.log("🚚 Attempting direct fulfillment from location:", locationId);
-                await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
-                console.log("✅ Fulfilled directly from:", this.getWarehouseNameFromId(locationId));
+                try {
+                  await this.moveToLocation(fulfillmentOrder.id, locationId);
+                  console.log("✅ Fulfillment order moved to:", this.getWarehouseNameFromId(locationId));
+                } catch (moveError) {
+                  console.error("⚠️ Failed to move fulfillment order:", moveError);
+                  
+                  console.log("🚚 Attempting direct fulfillment from location:", locationId);
+                  await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
+                  console.log("✅ Fulfilled directly from:", this.getWarehouseNameFromId(locationId));
+                }
               }
             }
           }
