@@ -86,51 +86,16 @@ export class ShopifyAPI {
       const locationId = warehouse ? getLocationIdFromWarehouse(warehouse) : undefined;
       console.log("🎯 Warehouse mapping:", warehouse, "->", locationId);
 
-      // Step 1: Create as draft order first with location specified
-      const draftOrderData = {
-        ...orderData,
-        draft_order: true,
-        applied_discount: null,
-        shipping_address: orderData.shipping_address,
-        billing_address: orderData.billing_address,
-        line_items: orderData.line_items.map(item => ({
-          ...item,
-          grams: 100,
-          requires_shipping: true
-        }))
-      };
-      
-      if (locationId) {
-        draftOrderData.location_id = locationId;
-        console.log("🎯 Creating draft order with location_id:", locationId);
-      }
-
-      const draftResponse = await this.makeRequest("/draft_orders.json", "POST", { 
-        draft_order: draftOrderData 
-      });
-      
-      if (!draftResponse.draft_order) {
-        throw new Error("Draft order creation failed");
-      }
-      
-      console.log("📝 Draft order created:", draftResponse.draft_order.id);
-      
-      // Step 2: Wait for Shopify to finish calculating, then complete the draft order
-      console.log("⏳ Waiting for Shopify to finish calculating...");
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-      
-      const response = await this.makeRequest(`/draft_orders/${draftResponse.draft_order.id}/complete.json`, "PUT", {});
+      // Create the order normally
+      const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
       
       if (!response.order) {
         throw new Error("Order creation failed - no order returned");
       }
 
       console.log("📋 Order created:", response.order.id);
-      console.log("🏪 Initial location_id:", response.order.location_id);
-      
-      console.log("📋 Order completed from draft!");
-      console.log("🏪 Final location_id:", response.order?.location_id);
-      console.log("🎯 Warehouse assignment:", locationId ? this.getWarehouseNameFromId(locationId) : "Default");
+      console.log("🏪 Shopify assigned location_id:", response.order.location_id);
+      console.log("🎯 Warehouse from tags:", warehouse);
       
       return response;
     } catch (error) {
