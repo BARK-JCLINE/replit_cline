@@ -77,21 +77,47 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    console.log("🚚 Creating order with fulfillment service approach");
-    console.log("📦 Line items with fulfillment services:", 
-      orderData.line_items.map(item => item.fulfillment_service));
-    
-    const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
-    
-    console.log("📋 Order created:", response.order?.id);
-    console.log("🏪 Shopify assigned location_id:", response.order?.location_id);
-    console.log("🚚 Line item fulfillment services:", 
-      response.order?.line_items?.map(item => ({
-        id: item.id,
-        fulfillment_service: item.fulfillment_service
-      })));
-    
-    return response;
+    try {
+      console.log("🔧 Creating Shopify order for warehouse:", orderData.tags);
+      
+      // Get location ID from warehouse tag
+      const warehouse = orderData.tags?.split(':')[1]?.trim();
+      const locationId = warehouse ? getLocationIdFromWarehouse(warehouse) : undefined;
+      console.log("🎯 Warehouse mapping:", warehouse, "->", locationId);
+
+      // Step 1: Create the order normally (let Shopify assign default location)
+      const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
+      
+      if (!response.order) {
+        throw new Error("Order creation failed - no order returned");
+      }
+
+      console.log("📋 Order created:", response.order.id);
+      console.log("🏪 Initial location_id:", response.order.location_id);
+      
+      // Step 2: If we have a specific warehouse, create fulfillment to override location
+      if (locationId && locationId !== response.order.location_id) {
+        console.log("🚚 Creating fulfillment to assign to location:", locationId);
+        
+        try {
+          const fulfillmentResult = await this.createFulfillment(
+            response.order.id, 
+            locationId, 
+            response.order.line_items
+          );
+          console.log("✅ Fulfillment created successfully!");
+          console.log("🎯 Final warehouse assignment:", this.getWarehouseNameFromId(locationId));
+        } catch (fulfillmentError) {
+          console.error("⚠️ Fulfillment creation failed:", fulfillmentError);
+          console.log("📦 Order still exists but may be at default location");
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error("❌ Error in createOrder:", error);
+      throw error;
+    }
   }
   
   private getWarehouseNameFromId(locationId: number): string {
