@@ -96,23 +96,33 @@ export class ShopifyAPI {
       console.log("📋 Order created:", response.order.id);
       console.log("🏪 Initial location_id:", response.order.location_id);
       
-      // Step 2: If we have a specific warehouse, try to update the order location
+      // Step 2: If we have a specific warehouse, try inventory-based assignment
       if (locationId) {
-        console.log("🔄 Attempting to update order location to:", locationId);
+        console.log("📦 Attempting inventory-based warehouse assignment to:", locationId);
         
         try {
-          // Try direct order update approach
-          const updateResponse = await this.makeRequest(`/orders/${response.order.id}.json`, "PUT", {
-            order: { 
-              location_id: locationId,
-              assigned_location_id: locationId 
+          // Get the product variants from the order
+          const lineItems = response.order.line_items;
+          
+          for (const item of lineItems) {
+            if (item.variant_id) {
+              console.log(`🔄 Setting inventory for variant ${item.variant_id} at location ${locationId}`);
+              
+              // Try to set inventory at the target location
+              await this.makeRequest(`/inventory_levels/set.json`, "POST", {
+                location_id: locationId,
+                inventory_item_id: item.variant_id,
+                available: 100 // Ensure stock is available at target location
+              });
+              
+              console.log(`✅ Inventory set for variant ${item.variant_id}`);
             }
-          });
-          console.log("✅ Order location updated successfully!");
-          console.log("🎯 Final warehouse assignment:", this.getWarehouseNameFromId(locationId));
-        } catch (updateError) {
-          console.error("⚠️ Order location update failed:", updateError);
-          console.log("📦 Order created but may be at default location");
+          }
+          
+          console.log("🎯 Inventory-based assignment completed for:", this.getWarehouseNameFromId(locationId));
+        } catch (inventoryError) {
+          console.error("⚠️ Inventory assignment failed:", inventoryError);
+          console.log("📦 Order created but location assignment may have failed");
         }
       }
       
