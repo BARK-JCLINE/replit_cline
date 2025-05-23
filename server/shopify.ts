@@ -149,6 +149,16 @@ export class ShopifyAPI {
                 try {
                   await this.moveToLocation(fulfillmentOrder.id, locationId);
                   console.log("✅ Fulfillment order moved to:", this.getWarehouseNameFromId(locationId));
+                  
+                  // Now create a fulfillment from the correct location
+                  console.log("📦 Creating fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
+                  const fulfillment = await this.createFulfillment(
+                    response.order.id, 
+                    locationId, 
+                    response.order.line_items
+                  );
+                  console.log("✅ Order fulfilled from:", this.getWarehouseNameFromId(locationId));
+                  
                 } catch (moveError) {
                   console.error("⚠️ Failed to move fulfillment order:", moveError);
                   
