@@ -427,10 +427,14 @@ export class ShopifyAPI {
             // Wait a moment for the move to process
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Fulfill from the location
-            console.log("📦 Creating fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
-            const fulfillment = await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
-            console.log("✅ Order fulfilled from:", this.getWarehouseNameFromId(locationId));
+            // Request fulfillment from the location  
+            console.log("📦 Requesting fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
+            const fulfillment = await this.makeRequest(`/fulfillment_orders/${fulfillmentOrder.id}/fulfillment_request.json`, "POST", {
+              fulfillment_request: {
+                message: "Request fulfillment from warehouse"
+              }
+            });
+            console.log("✅ Order fulfillment requested from:", this.getWarehouseNameFromId(locationId));
             
             return fulfillment;
             
