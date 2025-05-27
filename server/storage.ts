@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { orderConfigurations, orderBatches, type OrderConfiguration, type InsertOrderConfiguration, type OrderBatch, type InsertOrderBatch } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
@@ -147,6 +150,7 @@ class DatabaseStorage implements IStorage {
   private db;
 
   constructor() {
+    console.log("DATABASE_URL in storage.ts:", process.env.DATABASE_URL);
     const sql = neon(process.env.DATABASE_URL!);
     this.db = drizzle(sql);
   }
