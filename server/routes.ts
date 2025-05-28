@@ -189,7 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate and limit order count
       const { orderCount: rawOrderCount, orderDelay } = orderConfig;
       const orderCount = Math.min(Math.max(Number(rawOrderCount) || 1, 1), 30000);
-      
+
       console.log(`🔢 ORDER CREATION: Requested ${rawOrderCount}, validated to ${orderCount} orders for batch ${batchId}`);
 
       // Update batch status to processing
@@ -208,7 +208,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Add delay if configured
           if (orderDelay && orderDelay > 0) {
-            await new Promise(resolve => setTimeout(resolve, orderDelay * 1000));
+            // Add minimal delay between orders to avoid rate limits
+            if (i < orderCount - 1) {
+              const minDelay = Math.max(orderDelay * 1000, 200); // Minimum 200ms delay
+              await new Promise(resolve => setTimeout(resolve, minDelay));
+            }
           }
 
           // Create the Shopify order from configuration
@@ -307,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentBatch = await storage.getOrderBatchByBatchId(batchId);
       const wasCancelled = currentBatch && currentBatch.status === 'failed' && currentBatch.errorMessage === 'Cancelled by user';
       const hasErrors = createdOrders.some((order: any) => order.error);
-      
+
       if (!wasCancelled) {
         await storage.completeOrderBatch(batchId, createdOrders, hasErrors ? "Some orders failed to create" : undefined);
       } else {
@@ -318,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const successfulOrders = createdOrders.filter((order: any) => !order.error);
       const finalBatch = await storage.getOrderBatchByBatchId(batchId);
       const finalWasCancelled = finalBatch && finalBatch.status === 'failed' && finalBatch.errorMessage === 'Cancelled by user';
-      
+
       res.json({ 
         success: !finalWasCancelled, 
         batchId,
@@ -419,10 +423,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If deleteFromShopify is true, try to delete orders from Shopify FIRST
       if (deleteFromShopify && Array.isArray(batch.createdOrders) && batch.createdOrders.length > 0) {
         console.log(`🛒 DELETE BATCH: Attempting to delete ${batch.createdOrders.length} orders from Shopify`);
-        
+
         for (let i = 0; i < batch.createdOrders.length; i++) {
           const order = batch.createdOrders[i];
-          
+
           // Skip orders that don't have valid IDs
           if (!order.id || (typeof order.id !== 'string' && typeof order.id !== 'number')) {
             console.log(`⚠️ DELETE BATCH: Skipping order with invalid ID:`, order.id);
@@ -432,29 +436,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           try {
             console.log(`🗑️ DELETE BATCH: Deleting Shopify order ${order.id} (${i + 1}/${batch.createdOrders.length})`);
-            
+
             // Use a more specific deletion method
             const deleteResult = await shopifyAPI.deleteOrder(order.id.toString());
-            
+
             shopifyDeletionResults.deletedCount++;
             console.log(`✅ DELETE BATCH: Successfully deleted order ${order.id} from Shopify`);
-            
+
             // Add delay between deletions to avoid rate limits
             if (i < batch.createdOrders.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
-            
+
           } catch (shopifyError) {
             shopifyDeletionResults.failedCount++;
             console.error(`❌ DELETE BATCH: Failed to delete order ${order.id} from Shopify:`, shopifyError);
-            
+
             // Add delay even on failure
             if (i < batch.createdOrders.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 500));
             }
           }
         }
-        
+
         console.log(`🎯 DELETE BATCH: Shopify deletion complete - ${shopifyDeletionResults.deletedCount} deleted, ${shopifyDeletionResults.failedCount} failed`);
       }
 
@@ -468,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`🎉 DELETE BATCH: Successfully completed deletion for batch ${batchId}`);
-      
+
       const responseMessage = deleteFromShopify 
         ? `Batch deleted successfully. Shopify orders: ${shopifyDeletionResults.deletedCount} deleted, ${shopifyDeletionResults.failedCount} failed.`
         : "Batch deleted successfully from local storage.";
@@ -478,7 +482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: responseMessage,
         shopifyResults: deleteFromShopify ? shopifyDeletionResults : null
       });
-      
+
     } catch (error) {
       console.error("💥 DELETE BATCH: Critical error during deletion:", error);
       res.status(500).json({ 

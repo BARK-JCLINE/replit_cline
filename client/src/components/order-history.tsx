@@ -320,9 +320,6 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                           <span>
                             <span className="text-green-600">{createdOrders.length}</span>
                             <span className="text-gray-500">/{batch.orderCount}</span>
-                            <span className="text-xs text-orange-600 ml-1 block">
-                              (cancelled)
-                            </span>
                           </span>
                         ) : (
                           <>

@@ -51,13 +51,13 @@ export class ShopifyAPI {
 
   private async makeRequest(endpoint: string, method: string = "GET", data?: any) {
     const url = `${this.baseUrl}/admin/api/${this.apiVersion}${endpoint}`;
-    
+
     // Log the request details for debugging
     console.log(`🔍 SHOPIFY API: ${method} ${url}`);
     if (method === "DELETE") {
       console.log(`🗑️ SHOPIFY API: Confirmed DELETE request to ${endpoint}`);
     }
-    
+
     const headers: Record<string, string> = {
       "X-Shopify-Access-Token": this.accessToken,
       "Content-Type": "application/json",
@@ -74,9 +74,9 @@ export class ShopifyAPI {
     }
 
     const response = await fetch(url, options);
-    
+
     console.log(`📊 SHOPIFY API: Response status: ${response.status}`);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ SHOPIFY API: Error response: ${errorText}`);
@@ -95,7 +95,7 @@ export class ShopifyAPI {
   async createOrder(orderData: ShopifyOrder) {
     try {
       console.log("🔧 Creating Shopify order for warehouse:", orderData.tags);
-      
+
       // Get location ID from warehouse tag (format: "contains_kibble, replit, warehouse_om-bbh")
       const warehouseTag = orderData.tags?.split(',').find(tag => tag.trim().startsWith('warehouse_'));
       const warehouse = warehouseTag?.trim().replace('warehouse_', '');
@@ -104,7 +104,7 @@ export class ShopifyAPI {
 
       // Create the order normally
       const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
-      
+
       if (!response.order) {
         throw new Error("Order creation failed - no order returned");
       }
@@ -112,20 +112,20 @@ export class ShopifyAPI {
       console.log("📋 Order created:", response.order.id);
       console.log("🏪 Shopify assigned location_id:", response.order.location_id);
       console.log("🎯 Warehouse from tags:", warehouse);
-      
+
       // Step 2: If we have a specific warehouse, manage fulfillment manually
       if (locationId) {
         console.log("🚚 Managing fulfillment for warehouse:", this.getWarehouseNameFromId(locationId));
-        
+
         try {
           // Wait a moment for any automatic fulfillments to be created
           console.log("⏳ Waiting for automatic fulfillments to process...");
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
+          await new Promise(resolve => setTimeout(resolve, 500));
+
           // Check for existing fulfillments (if automatic fulfillment is enabled)
           const existingFulfillments = await this.getFulfillments(response.order.id);
           console.log("📦 Found existing fulfillments:", existingFulfillments.length);
-          
+
           // Cancel any automatic fulfillments that were created
           for (const fulfillment of existingFulfillments) {
             if (fulfillment.status !== "cancelled") {
@@ -138,11 +138,11 @@ export class ShopifyAPI {
               }
             }
           }
-          
+
           // Now get fulfillment orders for this order
           const fulfillmentOrders = await this.getFulfillmentOrders(response.order.id);
           console.log("📦 Found fulfillment orders:", fulfillmentOrders.length);
-          
+
           // After cancelling automatic fulfillments, create new one from correct location
           if (existingFulfillments.length > 0) {
             console.log("🚚 Creating new fulfillment from correct location:", locationId);
@@ -161,21 +161,21 @@ export class ShopifyAPI {
             for (const fulfillmentOrder of fulfillmentOrders) {
               if (fulfillmentOrder.status === "open" || fulfillmentOrder.status === "scheduled") {
                 console.log("🔄 Moving fulfillment order", fulfillmentOrder.id, "to location:", locationId);
-                
+
                 try {
                   await this.moveToLocation(fulfillmentOrder.id, locationId);
                   console.log("✅ Fulfillment order moved to:", this.getWarehouseNameFromId(locationId));
                   console.log("🔍 DEBUG: About to start fulfillment creation process...");
                   console.log("🔍 DEBUG: Code execution reaching fulfillment section...");
-                  
+
                   // Add a small delay to ensure the move is processed
                   console.log("⏳ Waiting for fulfillment order move to be processed...");
                   await new Promise(resolve => setTimeout(resolve, 500));
-                  
+
                   // Now fulfill the fulfillment order from the correct location
                   console.log("📦 Creating fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
                   console.log("🔧 Fulfillment Order ID:", fulfillmentOrder.id, "Location ID:", locationId);
-                  
+
                   try {
                     const fulfillment = await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
                     console.log("✅ Order fulfilled from:", this.getWarehouseNameFromId(locationId));
@@ -184,10 +184,10 @@ export class ShopifyAPI {
                     console.error("⚠️ Failed to fulfill from location:", fulfillError);
                     console.error("⚠️ Error details:", JSON.stringify(fulfillError, null, 2));
                   }
-                  
+
                 } catch (moveError) {
                   console.error("⚠️ Failed to move fulfillment order:", moveError);
-                  
+
                   console.log("🚚 Attempting direct fulfillment from location:", locationId);
                   await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
                   console.log("✅ Fulfilled directly from:", this.getWarehouseNameFromId(locationId));
@@ -195,20 +195,20 @@ export class ShopifyAPI {
               }
             }
           }
-          
+
         } catch (fulfillmentError) {
           console.error("⚠️ Fulfillment management failed:", fulfillmentError);
           console.log("📦 Order created but fulfillment may need manual assignment");
         }
       }
-      
+
       return response;
     } catch (error) {
       console.error("❌ Error in createOrder:", error);
       throw error;
     }
   }
-  
+
   private getWarehouseNameFromId(locationId: number): string {
     const warehouseMap: Record<number, string> = {
       96010764563: "BBL",
@@ -220,7 +220,7 @@ export class ShopifyAPI {
 
   async updateOrderLocationFromTags(orderId: number, locationId: number) {
     console.log("🏷️ Updating order location using tag information");
-    
+
     // Try multiple approaches to update the location
     const approaches = [
       // Approach 1: Direct order update
@@ -229,7 +229,7 @@ export class ShopifyAPI {
         const updateData = { order: { location_id: locationId } };
         return await this.makeRequest(`/orders/${orderId}.json`, "PUT", updateData);
       },
-      
+
       // Approach 2: Update via metafields
       async () => {
         console.log("🔄 Approach 2: Setting location via metafields");
@@ -243,7 +243,7 @@ export class ShopifyAPI {
         };
         return await this.makeRequest(`/orders/${orderId}/metafields.json`, "POST", metafieldData);
       },
-      
+
       // Approach 3: Update line items with location
       async () => {
         console.log("🔄 Approach 3: Updating line items with location");
@@ -344,7 +344,7 @@ export class ShopifyAPI {
 
   async assignLocationWithCredentials(orderId: number, locationId: number, apiKey: string, apiSecret: string) {
     console.log("🔑 Using location API credentials for warehouse assignment");
-    
+
     // Create fulfillment using the location API credentials
     const fulfillmentData = {
       fulfillment: {
@@ -353,7 +353,7 @@ export class ShopifyAPI {
         tracking_numbers: []
       }
     };
-    
+
     const options: RequestInit = {
       method: "POST",
       headers: {
@@ -363,18 +363,18 @@ export class ShopifyAPI {
       },
       body: JSON.stringify(fulfillmentData)
     };
-    
+
     const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
     const url = `https://${shopDomain}/admin/api/${this.apiVersion}/orders/${orderId}/fulfillments.json`;
-    
+
     console.log("🚚 Creating fulfillment with location API credentials...");
     const response = await fetch(url, options);
-    
+
     if (!response.ok) {
       console.error("❌ Location API request failed:", response.status, await response.text());
       throw new Error(`Location API Error: ${response.status}`);
     }
-    
+
     return response.json();
   }
 
@@ -386,7 +386,7 @@ export class ShopifyAPI {
         location_id: locationId
       }
     };
-    
+
     return this.makeRequest(`/orders/${orderId}/line_items/${lineItemId}.json`, "PUT", updateData);
   }
 
@@ -394,7 +394,7 @@ export class ShopifyAPI {
     // Get fresh order data to ensure we have correct line item IDs
     const orderData = await this.makeRequest(`/orders/${orderId}.json`);
     const orderLineItems = orderData.order.line_items;
-    
+
     const fulfillmentData = {
       fulfillment: {
         location_id: locationId,
@@ -405,7 +405,7 @@ export class ShopifyAPI {
         }))
       }
     };
-    
+
     console.log("🔧 Fulfillment data:", JSON.stringify(fulfillmentData, null, 2));
     return this.makeRequest(`/orders/${orderId}/fulfillments.json`, "POST", fulfillmentData);
   }
@@ -413,36 +413,36 @@ export class ShopifyAPI {
   async fulfillOrderFromWarehouse(orderId: number, warehouse: string) {
     try {
       console.log("🔧 Starting fulfillment process for order:", orderId, "warehouse:", warehouse);
-      
+
       // Get location ID from warehouse
       const locationId = getLocationIdFromWarehouse(warehouse);
       if (!locationId) {
         throw new Error(`Unknown warehouse: ${warehouse}`);
       }
-      
+
       console.log("🎯 Warehouse mapping:", warehouse, "->", locationId);
-      
+
       // Get fulfillment orders for this order
       const fulfillmentOrders = await this.getFulfillmentOrders(orderId);
       console.log("📦 Found fulfillment orders:", fulfillmentOrders.length);
-      
+
       if (fulfillmentOrders.length === 0) {
         throw new Error("No fulfillment orders found for this order");
       }
-      
+
       // Process each fulfillment order
       for (const fulfillmentOrder of fulfillmentOrders) {
         if (fulfillmentOrder.status === "open" || fulfillmentOrder.status === "scheduled") {
           console.log("🔄 Moving fulfillment order", fulfillmentOrder.id, "to location:", locationId);
-          
+
           try {
             // Move to correct location
             await this.moveToLocation(fulfillmentOrder.id, locationId);
             console.log("✅ Moved to warehouse:", this.getWarehouseNameFromId(locationId));
-            
+
             // Wait a moment for the move to process
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
+
             // Request fulfillment from the location  
             console.log("📦 Requesting fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
             const fulfillment = await this.makeRequest(`/fulfillment_orders/${fulfillmentOrder.id}/fulfillment_request.json`, "POST", {
@@ -451,16 +451,16 @@ export class ShopifyAPI {
               }
             });
             console.log("✅ Order fulfillment requested from:", this.getWarehouseNameFromId(locationId));
-            
+
             return fulfillment;
-            
+
           } catch (error) {
             console.error("⚠️ Failed to process fulfillment order:", error);
             throw error;
           }
         }
       }
-      
+
     } catch (error) {
       console.error("❌ Fulfillment process failed:", error);
       throw error;
@@ -478,7 +478,7 @@ export class ShopifyAPI {
   async searchProductBySku(sku: string) {
     // First, get all products to search for SKU
     const products = await this.makeRequest("/products.json?limit=250");
-    
+
     for (const product of products.products) {
       for (const variant of product.variants) {
         if (variant.sku === sku) {
@@ -493,7 +493,7 @@ export class ShopifyAPI {
         }
       }
     }
-    
+
     return null;
   }
 
@@ -501,9 +501,9 @@ export class ShopifyAPI {
     try {
       // Get the most recent orders to find the last BARK order number
       const orders = await this.makeRequest("/orders.json?limit=50&status=any");
-      
+
       let lastBarkNumber = 271007; // Default starting number if no BARK orders found
-      
+
       for (const order of orders.orders) {
         if (order.name && order.name.startsWith("BARK-")) {
           const numberPart = order.name.replace("BARK-", "");
@@ -513,7 +513,7 @@ export class ShopifyAPI {
           }
         }
       }
-      
+
       return lastBarkNumber;
     } catch (error) {
       console.error("Failed to get last order number:", error);
@@ -525,7 +525,7 @@ export class ShopifyAPI {
   async deleteOrder(orderId: string) {
     try {
       console.log(`🗑️ SHOPIFY DELETE: Starting deletion process for order ${orderId}`);
-      
+
       // Validate orderId format
       if (!orderId || orderId.trim() === '') {
         throw new Error("Invalid order ID provided");
@@ -534,7 +534,7 @@ export class ShopifyAPI {
       // Clean orderId - ensure it's just the numeric ID
       const cleanOrderId = orderId.toString().trim();
       console.log(`🔍 SHOPIFY DELETE: Using clean order ID: ${cleanOrderId}`);
-      
+
       // First, try to get the order to confirm it exists
       let orderExists = false;
       try {
@@ -549,12 +549,12 @@ export class ShopifyAPI {
       if (orderExists) {
         // Perform the actual deletion using explicit DELETE method
         console.log(`🗑️ SHOPIFY DELETE: Executing DELETE request for order ${cleanOrderId}`);
-        
+
         try {
           // Use the makeRequest method with explicit DELETE 
           await this.makeRequest(`/orders/${cleanOrderId}.json`, "DELETE", undefined);
           console.log(`✅ SHOPIFY DELETE: Successfully sent DELETE request for order ${cleanOrderId}`);
-          
+
           // Verify deletion by trying to get the order again
           try {
             await this.makeRequest(`/orders/${cleanOrderId}.json`, "GET");
@@ -564,28 +564,28 @@ export class ShopifyAPI {
             console.log(`✅ SHOPIFY DELETE: Order ${cleanOrderId} successfully deleted - no longer accessible`);
             return { success: true, message: "Order successfully deleted from Shopify" };
           }
-          
+
         } catch (deleteError) {
           console.error(`❌ SHOPIFY DELETE: DELETE request failed for order ${cleanOrderId}:`, deleteError);
           throw deleteError;
         }
       }
-      
+
     } catch (error) {
       console.error(`💥 SHOPIFY DELETE: Critical error deleting order ${orderId}:`, error);
-      
+
       // Handle specific error cases
       if (error instanceof Error) {
         if (error.message.includes("404")) {
           console.log(`⚠️ SHOPIFY DELETE: Order ${orderId} was already deleted (404 error)`);
           return { success: true, message: "Order was already deleted" };
         }
-        
+
         if (error.message.includes("403")) {
           throw new Error(`Permission denied - cannot delete order ${orderId}. Check API permissions.`);
         }
       }
-      
+
       throw new Error(`Failed to delete order ${orderId} from Shopify: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -602,13 +602,13 @@ function getLocationIdFromWarehouse(warehouse: string): number | undefined {
     "om-bbh": 105521053971, // OM Fulfillment Service BBH
     "om-bbp": 101212520723, // OM Fulfillment Service BBP
   };
-  
+
   return warehouseMap[warehouse];
 }
 
 export function createShopifyOrderFromConfig(config: OrderConfiguration): ShopifyOrder {
   console.log("🔧 Creating Shopify order for warehouse:", config.warehouse);
-  
+
   // Map addresses and use customer details from config
   const getAddressFromConfig = (addressKey: string): ShopifyAddress => {
     const baseAddress = {
@@ -650,7 +650,7 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   };
 
   const address = getAddressFromConfig(config.address);
-  
+
   // Get the Shopify location ID for the selected warehouse
   const locationId = getLocationIdFromWarehouse(config.warehouse);
   console.log("🎯 Warehouse mapping:", config.warehouse, "->", locationId);
