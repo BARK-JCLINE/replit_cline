@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -19,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { History, Download, Trash2, Eye, RotateCcw, CheckCircle, XCircle } from "lucide-react";
+import { History, Download, Trash2, Eye, RotateCcw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import type { OrderBatch } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,17 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   const [selectedBatches, setSelectedBatches] = useState<number[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteFromShopify, setDeleteFromShopify] = useState(false);
+  const [deletionProgress, setDeletionProgress] = useState<{
+    isDeleting: boolean;
+    current: number;
+    total: number;
+    message: string;
+  }>({
+    isDeleting: false,
+    current: 0,
+    total: 0,
+    message: ""
+  });
 
   // Delete batches mutation
   const deleteBatchesMutation = useMutation({
@@ -44,16 +56,24 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
       let failed = 0;
       const total = batchesToDelete.ids.length;
 
-      // Show initial progress toast for bulk deletions
-      if (total > 1) {
-        toast({
-          title: "Deleting Orders...",
-          description: `Starting deletion of ${total} order batches...`,
-        });
-      }
+      // Start progress tracking
+      setDeletionProgress({
+        isDeleting: true,
+        current: 0,
+        total: total,
+        message: `Starting deletion of ${total} order batch${total !== 1 ? 'es' : ''}...`
+      });
 
       for (let i = 0; i < batchesToDelete.ids.length; i++) {
         const id = batchesToDelete.ids[i];
+        
+        // Update progress
+        setDeletionProgress(prev => ({
+          ...prev,
+          current: i,
+          message: `Deleting batch ${i + 1} of ${total}...`
+        }));
+
         try {
           const response = await fetch(`/api/batches/${id}`, {
             method: 'DELETE',
@@ -63,14 +83,6 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
 
           if (response.ok) {
             succeeded++;
-
-            // Show progress for bulk deletions
-            if (total > 1) {
-              toast({
-                title: "Deletion Progress",
-                description: `Deleted ${succeeded} of ${total} order batches...`,
-              });
-            }
           } else {
             failed++;
             console.error(`Failed to delete batch ${id}: ${response.status}`);
@@ -86,12 +98,29 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
         }
       }
 
+      // Complete progress
+      setDeletionProgress(prev => ({
+        ...prev,
+        current: total,
+        message: `Deletion complete: ${succeeded} succeeded, ${failed} failed`
+      }));
+
       return { succeeded, failed, total };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
       setSelectedBatches([]);
       onRefresh();
+
+      // Clear progress after a delay to show completion
+      setTimeout(() => {
+        setDeletionProgress({
+          isDeleting: false,
+          current: 0,
+          total: 0,
+          message: ""
+        });
+      }, 2000);
 
       // Show final result
       if (data.failed > 0) {
@@ -109,6 +138,12 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
     },
     onError: (error) => {
       console.error("Bulk deletion error:", error);
+      setDeletionProgress({
+        isDeleting: false,
+        current: 0,
+        total: 0,
+        message: ""
+      });
       toast({
         title: "Delete Failed",
         description: "Failed to delete selected orders. Please try again.",
@@ -170,6 +205,8 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
     switch (status) {
       case "completed":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case "partial":
+        return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
       case "failed":
         return <XCircle className="h-4 w-4 text-red-600" />;
       case "processing":
@@ -182,13 +219,21 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   const getStatusBadge = (status: string) => {
     const variants: { [key: string]: "default" | "secondary" | "destructive" } = {
       completed: "default",
+      partial: "secondary",
       failed: "destructive",
       processing: "secondary",
       pending: "secondary",
     };
 
+    const colors: { [key: string]: string } = {
+      partial: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    };
+
     return (
-      <Badge variant={variants[status] || "secondary"} className="capitalize">
+      <Badge 
+        variant={variants[status] || "secondary"} 
+        className={`capitalize ${colors[status] || ""}`}
+      >
         {status}
       </Badge>
     );
@@ -276,7 +321,6 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                   <TableHead className="font-medium text-gray-700">Shopify Order Name</TableHead>
                   <TableHead className="font-medium text-gray-700">Shopify ID</TableHead>
                   <TableHead className="font-medium text-gray-700">Orders Created</TableHead>
-                  <TableHead className="font-medium text-gray-700">Configuration</TableHead>
                   <TableHead className="font-medium text-gray-700">Status</TableHead>
                   <TableHead className="font-medium text-gray-700">Actions</TableHead>
                 </TableRow>
@@ -284,7 +328,9 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
               <TableBody>
                 {batches.map((batch) => {
                   const createdOrders = Array.isArray(batch.createdOrders) ? batch.createdOrders : [];
-                  const firstOrder = createdOrders[0];
+                  const validOrders = createdOrders.filter((order: any) => !order.error);
+                  const lastOrder = validOrders[validOrders.length - 1]; // Get the last created order
+                  const firstOrderName = validOrders[0]?.shopify_order_number || validOrders[0]?.name;
 
                   return (
                     <TableRow key={batch.id} className="hover:bg-gray-50">
@@ -298,18 +344,18 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                         {formatTimestamp(batch.createdAt)}
                       </TableCell>
                       <TableCell>
-                        {firstOrder?.name ? (
+                        {firstOrderName ? (
                           <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
-                            {firstOrder.name}
+                            BARK-{firstOrderName}
                           </code>
                         ) : (
                           <span className="text-gray-500 text-sm">N/A</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {firstOrder?.id ? (
+                        {lastOrder?.id ? (
                           <code className="bg-blue-50 px-2 py-1 rounded text-xs font-mono text-blue-700">
-                            {firstOrder.id}
+                            {lastOrder.id}
                           </code>
                         ) : (
                           <span className="text-gray-500 text-sm">N/A</span>
@@ -318,26 +364,19 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                       <TableCell className="font-medium">
                         {batch.status === 'failed' && batch.errorMessage === 'Cancelled by user' ? (
                           <span>
-                            <span className="text-green-600">{createdOrders.length}</span>
+                            <span className="text-green-600">{validOrders.length}</span>
                             <span className="text-gray-500">/{batch.orderCount}</span>
                           </span>
                         ) : (
                           <>
-                            {batch.orderCount}
-                            {createdOrders.length > 1 && (
+                            {validOrders.length}
+                            {batch.orderCount > 1 && (
                               <span className="text-xs text-gray-500 ml-1">
-                                (+{createdOrders.length - 1} more)
+                                of {batch.orderCount}
                               </span>
                             )}
                           </>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                            {batch.configurationId ? `Config-${batch.configurationId}` : "N/A"}
-                          </Badge>
-                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
@@ -347,13 +386,13 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          {firstOrder?.id ? (
+                          {lastOrder?.id ? (
                             <Button 
                               variant="ghost" 
                               size="sm"
                               onClick={() => {
                                 // Open Shopify order in new tab
-                                const orderUrl = `https://admin.shopify.com/store/dev-bark-co/orders/${firstOrder.id}`;
+                                const orderUrl = `https://admin.shopify.com/store/dev-bark-co/orders/${lastOrder.id}`;
                                 window.open(orderUrl, '_blank');
                               }}
                               title="View order in Shopify"
@@ -375,6 +414,24 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                 })}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {/* Deletion Progress Bar */}
+        {deletionProgress.isDeleting && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-blue-900">
+                {deletionProgress.message}
+              </span>
+              <span className="text-sm text-blue-700">
+                {deletionProgress.current}/{deletionProgress.total}
+              </span>
+            </div>
+            <Progress 
+              value={(deletionProgress.current / deletionProgress.total) * 100} 
+              className="w-full"
+            />
           </div>
         )}
       </CardContent>

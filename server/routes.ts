@@ -285,12 +285,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentBatch = await storage.getOrderBatchByBatchId(batchId);
       const wasCancelled = currentBatch && currentBatch.status === 'failed' && currentBatch.errorMessage === 'Cancelled by user';
       const hasErrors = createdOrders.some((order: any) => order.error);
+      const successfulOrders = createdOrders.filter((order: any) => !order.error);
+      
+      // Determine final status
+      let finalStatus = 'completed';
+      let errorMessage = undefined;
+      
+      if (wasCancelled) {
+        finalStatus = 'failed';
+        errorMessage = "Cancelled by user";
+      } else if (hasErrors) {
+        if (successfulOrders.length === 0) {
+          // All orders failed
+          finalStatus = 'failed';
+          errorMessage = "All orders failed to create";
+        } else if (successfulOrders.length < orderCount) {
+          // Some orders succeeded, some failed
+          finalStatus = 'partial';
+          errorMessage = "Some orders failed to create";
+        }
+      }
 
       if (!wasCancelled) {
-        await storage.completeOrderBatch(batchId, createdOrders, hasErrors ? "Some orders failed to create" : undefined);
+        await storage.completeOrderBatch(batchId, createdOrders, errorMessage, finalStatus);
       } else {
         // Update the cancelled batch with whatever orders were created before cancellation
-        await storage.completeOrderBatch(batchId, createdOrders, "Cancelled by user");
+        await storage.completeOrderBatch(batchId, createdOrders, "Cancelled by user", 'failed');
       }
 
       const successfulOrders = createdOrders.filter((order: any) => !order.error);

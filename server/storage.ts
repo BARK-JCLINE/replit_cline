@@ -202,19 +202,19 @@ class DatabaseStorage implements IStorage {
   async updateOrderBatchProgress(batchId: string, progress: number, status?: string): Promise<OrderBatch | undefined> {
     const updates: any = { progress };
     if (status) updates.status = status;
-    
+
     const [updated] = await this.db.update(orderBatches).set(updates).where(eq(orderBatches.batchId, batchId)).returning();
     return updated;
   }
 
-  async completeOrderBatch(batchId: string, createdOrders: any[], errorMessage?: string): Promise<OrderBatch | undefined> {
+  async completeOrderBatch(batchId: string, createdOrders: any[], errorMessage?: string, status?: string): Promise<OrderBatch | undefined> {
     const updates: any = {
-      status: errorMessage ? "failed" : "completed",
+      status: status || (errorMessage ? "failed" : "completed"),
       progress: 100,
       completedAt: new Date(),
       createdOrders,
     };
-    
+
     if (errorMessage) {
       updates.errorMessage = errorMessage;
     }
