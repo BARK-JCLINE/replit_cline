@@ -79,6 +79,11 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
           failed++;
           console.error(`Error deleting batch ${id}:`, error);
         }
+
+        // Add delay between deletions when deleting from Shopify to avoid rate limits
+        if (batchesToDelete.deleteFromShopify && i < batchesToDelete.ids.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+        }
       }
       
       return { succeeded, failed, total };

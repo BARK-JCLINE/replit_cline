@@ -396,16 +396,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If deleteFromShopify is true, try to delete orders from Shopify
       if (deleteFromShopify && Array.isArray(batch.createdOrders)) {
         console.log(`🛒 Attempting to delete ${batch.createdOrders.length} orders from Shopify`);
-        for (const order of batch.createdOrders) {
+        let deletedCount = 0;
+        let failedCount = 0;
+        
+        for (let i = 0; i < batch.createdOrders.length; i++) {
+          const order = batch.createdOrders[i];
           try {
             if (order.id) {
               await shopifyAPI.deleteOrder(order.id);
-              console.log(`✅ Deleted order ${order.id} from Shopify`);
+              deletedCount++;
+              console.log(`✅ Deleted order ${order.id} from Shopify (${deletedCount}/${batch.createdOrders.length})`);
+              
+              // Add delay between deletions to avoid rate limits
+              if (i < batch.createdOrders.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between deletions
+              }
             }
           } catch (shopifyError) {
+            failedCount++;
             console.warn(`⚠️ Failed to delete order ${order.id} from Shopify:`, shopifyError);
+            
+            // Still add delay even on failure to avoid overwhelming the API
+            if (i < batch.createdOrders.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
           }
         }
+        
+        console.log(`🎯 Shopify deletion summary: ${deletedCount} deleted, ${failedCount} failed`);
       }
 
       // Delete the batch from our storage
