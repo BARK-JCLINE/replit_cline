@@ -1,6 +1,16 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+import crypto from "crypto";
+
+if (typeof globalThis.crypto === "undefined") {
+  // Node.js v19+ exposes webcrypto as crypto.webcrypto
+  globalThis.crypto = crypto.webcrypto;
+}
 
 const app = express();
 app.use(express.json());
