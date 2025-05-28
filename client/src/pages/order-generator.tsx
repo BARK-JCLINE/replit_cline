@@ -33,7 +33,8 @@ import {
   Play, 
   CheckCircle, 
   Download,
-  Loader2
+  Loader2,
+  XCircle
 } from "lucide-react";
 import type { 
   InsertOrderConfiguration, 
@@ -73,6 +74,7 @@ export default function OrderGenerator() {
   const [selectedExistingTemplate, setSelectedExistingTemplate] = useState<number | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [currentBatchId, setCurrentBatchId] = useState<string | null>(null);
 
   // Fetch order batches for history
   const { data: batchesData = [], refetch: refetchBatches } = useQuery<OrderBatch[]>({
@@ -175,11 +177,11 @@ export default function OrderGenerator() {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error(`Delete failed: ${response.status}`);
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -204,10 +206,10 @@ export default function OrderGenerator() {
 
   // Create orders mutation
   const createOrdersMutation = useMutation({
-    mutationFn: async (config: InsertOrderConfiguration) => {
+    mutationFn: async (config: InsertOrderConfiguration & { batchId: string }) => {
       // Create batch with a unique temporary name for order creation
-      const batchId = `BATCH-${Date.now()}`;
-      
+      const batchId = config.batchId;
+
       // Create batch without saving configuration permanently
       const batchResponse = await apiRequest("POST", "/api/batches", {
         batchId,
@@ -224,19 +226,44 @@ export default function OrderGenerator() {
       });
       return orderResponse.json();
     },
-    onSuccess: (data) => {
-      setIsCreatingOrders(false);
-      refetchBatches();
+    onSuccess: () => {
       toast({
-        title: "Orders Created Successfully!",
-        description: `${data.ordersCreated} test orders have been created and are ready for testing.`,
+        title: "Orders Created Successfully",
+        description: `${orderConfig.orderCount} orders have been created successfully.`,
       });
+      setIsCreatingOrders(false);
+      setCurrentBatchId(null);
+      refetchBatches();
     },
     onError: (error) => {
       setIsCreatingOrders(false);
+      setCurrentBatchId(null);
       toast({
         title: "Order Creation Failed",
         description: "Failed to create test orders. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const cancelOrdersMutation = useMutation({
+    mutationFn: async (batchId: string) => {
+      const response = await apiRequest("POST", "/api/orders/cancel", { batchId });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Order Creation Cancelled",
+        description: "Order creation has been cancelled successfully.",
+      });
+      setIsCreatingOrders(false);
+      setCurrentBatchId(null);
+      refetchBatches();
+    },
+    onError: (error) => {
+      toast({
+        title: "Order Cancellation Failed",
+        description: "Failed to cancel order creation. Please try again.",
         variant: "destructive",
       });
     },
@@ -263,6 +290,8 @@ export default function OrderGenerator() {
     }
 
     setIsCreatingOrders(true);
+    const batchId = `BATCH-${Date.now()}`;
+    setCurrentBatchId(batchId);
     setCreationProgress({
       percentage: 0,
       status: `0 of ${orderConfig.orderCount} orders created`,
@@ -290,8 +319,8 @@ export default function OrderGenerator() {
         ...orderConfig,
         lineItems: orderConfig.lineItems.filter(item => item.productId && item.productId.trim() !== "")
       };
-      
-      await createOrdersMutation.mutateAsync(cleanedConfig);
+
+      await createOrdersMutation.mutateAsync({ ...cleanedConfig, batchId });
     } finally {
       clearInterval(progressInterval);
     }
@@ -342,7 +371,7 @@ export default function OrderGenerator() {
       const configToSave = { ...orderConfig, name: templateName };
       saveTemplateMutation.mutate(configToSave);
     }
-    
+
     setShowSaveDialog(false);
     setTemplateName("");
     setSelectedExistingTemplate(null);
@@ -366,9 +395,9 @@ export default function OrderGenerator() {
       customerEmail: template.customerEmail || "",
       orderDelay: template.orderDelay || 0,
     };
-    
+
     setOrderConfig(loadedConfig);
-    
+
     toast({
       title: "Template Loaded!",
       description: `Configuration "${template.name}" has been loaded successfully.`,
@@ -389,6 +418,12 @@ export default function OrderGenerator() {
       title: "Configuration Exported",
       description: "Configuration file has been downloaded.",
     });
+  };
+
+  const handleCancelOrders = () => {
+    if (currentBatchId) {
+      cancelOrdersMutation.mutate(currentBatchId);
+    }
   };
 
   return (
@@ -492,7 +527,7 @@ export default function OrderGenerator() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <OrderConfigurationForm
                   config={orderConfig}
                   onChange={setOrderConfig}
@@ -520,7 +555,22 @@ export default function OrderGenerator() {
                 )}
                 Create Test Orders
               </Button>
-              
+              {isCreatingOrders && (
+                <Button
+                  onClick={handleCancelOrders}
+                  disabled={cancelOrdersMutation.isPending}
+                  variant="destructive"
+                  className="w-full"
+                >
+                  {cancelOrdersMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Cancel Orders
+                </Button>
+              )}
+
               <Button
                 onClick={handleValidateConfig}
                 disabled={validateMutation.isPending}
@@ -534,7 +584,7 @@ export default function OrderGenerator() {
                 )}
                 Validate Configuration
               </Button>
-              
+
               <Button
                 onClick={handleExportConfig}
                 variant="outline"

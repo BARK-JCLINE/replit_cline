@@ -51,6 +51,7 @@ export const insertOrderConfigurationSchema = createInsertSchema(orderConfigurat
   customTags: z.array(z.string()).optional(),
   orderCount: z.number().min(1).max(30000),
   orderDelay: z.number().min(0).max(60),
+  batchId: z.string().optional(),
 }).omit({
   id: true,
   createdAt: true,

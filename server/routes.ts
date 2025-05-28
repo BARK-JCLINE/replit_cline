@@ -25,20 +25,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/configurations", async (req, res) => {
     try {
       const validatedData = insertOrderConfigurationSchema.parse(req.body);
-      
+
       // Check for duplicate names
       const existingConfigurations = await storage.getAllOrderConfigurations();
       const isDuplicate = existingConfigurations.some(
         (config) => config.name.toLowerCase() === validatedData.name.toLowerCase()
       );
-      
+
       if (isDuplicate) {
         return res.status(400).json({ 
           error: "Template name already exists", 
           message: "A template with this name already exists. Please choose a different name." 
         });
       }
-      
+
       const configuration = await storage.createOrderConfiguration(validatedData);
       res.status(201).json(configuration);
     } catch (error) {
@@ -85,16 +85,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       console.log(`Attempting to delete configuration with ID: ${id}`);
-      
+
       // Check if it exists first
       const existing = await storage.getOrderConfiguration(id);
       console.log(`Configuration exists:`, existing ? 'YES' : 'NO');
-      
+
       // First check if there are any batches using this configuration
       const allBatches = await storage.getAllOrderBatches();
       const linkedBatches = allBatches.filter(batch => batch.configurationId === id);
       console.log(`Found ${linkedBatches.length} batches linked to configuration ${id}`);
-      
+
       if (linkedBatches.length > 0) {
         console.log(`Unlinking ${linkedBatches.length} batches from configuration ${id}`);
         // Update batches to remove the configuration reference instead of deleting
@@ -104,18 +104,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         console.log(`Successfully unlinked all batches from configuration ${id}`);
       }
-      
+
       const success = await storage.deleteOrderConfiguration(id);
       console.log(`Delete operation result: ${success}`);
-      
+
       if (!success) {
         return res.status(404).json({ error: "Configuration not found" });
       }
-      
+
       // Verify it's gone
       const afterDelete = await storage.getOrderConfiguration(id);
       console.log(`Configuration after delete:`, afterDelete ? 'STILL EXISTS' : 'DELETED');
-      
+
       res.json({ success: true, message: "Template deleted successfully" });
     } catch (error) {
       console.error('Delete error:', error);
@@ -165,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/orders/create", async (req, res) => {
     try {
       const { configurationId, configuration, batchId } = req.body;
-      
+
       // Use provided configuration or fetch from database
       let orderConfig;
       if (configuration) {
@@ -201,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Create the Shopify order from configuration
           const shopifyOrderData = createShopifyOrderFromConfig(orderConfig);
-          
+
           // Try to find actual products by SKU and update line items
           const updatedLineItems = [];
           for (const lineItem of shopifyOrderData.line_items) {
@@ -213,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   product_id: productInfo.product_id,
                   title: productInfo.title,
                   quantity: lineItem.quantity,
-                  price: productInfo.price,
+                  price: lineItem.price,
                   sku: lineItem.sku,
                 });
               } else {
@@ -225,12 +225,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               updatedLineItems.push(lineItem);
             }
           }
-          
+
           shopifyOrderData.line_items = updatedLineItems;
 
           // Create the order in Shopify
           const shopifyResponse = await shopifyAPI.createOrder(shopifyOrderData);
-          
+
           const order = {
             id: shopifyResponse.order.id,
             shopify_order_number: shopifyResponse.order.order_number,
@@ -250,20 +250,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Fulfill the order after creation
           try {
             console.log("🚚 Attempting to fulfill order:", shopifyResponse.order.id, "from warehouse:", configuration.warehouse);
-            
+
             // Get fulfillment orders for this order
             const fulfillmentOrders = await shopifyAPI.getFulfillmentOrders(shopifyResponse.order.id);
-            
+
             if (fulfillmentOrders.length > 0) {
               const fulfillmentOrder = fulfillmentOrders[0];
               console.log("📦 Requesting fulfillment for fulfillment order:", fulfillmentOrder.id);
-              
+
               await shopifyAPI.makeRequest(`/fulfillment_orders/${fulfillmentOrder.id}/fulfillment_request.json`, "POST", {
                 fulfillment_request: {
                   message: "Request fulfillment from warehouse"
                 }
               });
-              
+
               console.log("✅ Order fulfillment requested successfully");
             }
           } catch (fulfillError) {
@@ -277,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         } catch (orderError) {
           console.error(`Failed to create order ${i + 1}:`, orderError);
-          
+
           // Add failed order to results
           createdOrders.push({
             error: true,
@@ -304,12 +304,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Order creation failed:", error);
-      
+
       // Mark batch as failed if batchId exists
       if (req.body.batchId) {
         await storage.completeOrderBatch(req.body.batchId, [], (error as Error).message);
       }
-      
+
       res.status(500).json({ error: "Failed to create orders", details: (error as Error).message });
     }
   });
@@ -412,7 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🗃️ Deleting batch ${batchId} from storage`);
       const deleted = await storage.deleteOrderBatch(batchId);
       console.log(`🎯 Batch deletion result:`, deleted);
-      
+
       if (!deleted) {
         console.log(`❌ Storage deletion failed for batch ${batchId}`);
         return res.status(500).json({ error: "Failed to delete batch from storage" });
@@ -441,6 +441,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ valid: false, error: "Validation failed" });
       }
+    }
+  });
+
+  // Cancel order creation
+  app.post("/api/orders/cancel/:batchId", async (req, res) => {
+    try {
+      const { batchId } = req.params;
+
+      // Update batch status to cancelled
+      // const [batch] = await db
+      //   .update(orderBatches)
+      //   .set({ 
+      //     status: "failed",
+      //     errorMessage: "Cancelled by user",
+      //     completedAt: new Date()
+      //   })
+      //   .where(eq(orderBatches.batchId, batchId))
+      //   .returning();
+
+        const batch = await storage.getOrderBatchByBatchId(batchId);
+
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+
+        await storage.completeOrderBatch(batchId, [], "Cancelled by user");
+
+      res.json({ 
+        success: true, 
+        message: "Order creation cancelled successfully",
+        batch 
+      });
+    } catch (error) {
+      console.error("❌ Error cancelling order creation:", error);
+      res.status(500).json({ error: "Failed to cancel order creation" });
     }
   });
 
