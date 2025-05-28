@@ -40,11 +40,20 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   // Delete batches mutation
   const deleteBatchesMutation = useMutation({
     mutationFn: async (batchesToDelete: { ids: number[], deleteFromShopify: boolean }) => {
-      // Simple approach - delete each batch one by one
       let succeeded = 0;
       let failed = 0;
+      const total = batchesToDelete.ids.length;
 
-      for (const id of batchesToDelete.ids) {
+      // Show initial progress toast for bulk deletions
+      if (total > 1) {
+        toast({
+          title: "Deleting Orders...",
+          description: `Starting deletion of ${total} order batches...`,
+        });
+      }
+
+      for (let i = 0; i < batchesToDelete.ids.length; i++) {
+        const id = batchesToDelete.ids[i];
         try {
           const response = await fetch(`/api/batches/${id}`, {
             method: 'DELETE',
@@ -54,30 +63,47 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
           
           if (response.ok) {
             succeeded++;
+            
+            // Show progress for bulk deletions
+            if (total > 1) {
+              toast({
+                title: "Deletion Progress",
+                description: `Deleted ${succeeded} of ${total} order batches...`,
+              });
+            }
           } else {
             failed++;
+            console.error(`Failed to delete batch ${id}: ${response.status}`);
           }
-        } catch {
+        } catch (error) {
           failed++;
+          console.error(`Error deleting batch ${id}:`, error);
         }
       }
       
-      return { succeeded, failed };
+      return { succeeded, failed, total };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
       setSelectedBatches([]);
-      setDeleteDialogOpen(false);
-      setDeleteFromShopify(false);
       onRefresh();
       
-      // Always show success if we got here
-      toast({
-        title: "Orders Deleted!",
-        description: `${data.succeeded} order${data.succeeded !== 1 ? 's' : ''} deleted successfully.`,
-      });
+      // Show final result
+      if (data.failed > 0) {
+        toast({
+          title: "Deletion Completed with Errors",
+          description: `${data.succeeded} deleted successfully, ${data.failed} failed.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Orders Deleted!",
+          description: `All ${data.succeeded} order batch${data.succeeded !== 1 ? 'es' : ''} deleted successfully.`,
+        });
+      }
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Bulk deletion error:", error);
       toast({
         title: "Delete Failed",
         description: "Failed to delete selected orders. Please try again.",
@@ -124,6 +150,11 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
   };
 
   const confirmDelete = () => {
+    // Close dialog immediately to allow continued interaction
+    setDeleteDialogOpen(false);
+    setDeleteFromShopify(false);
+    
+    // Start deletion process
     deleteBatchesMutation.mutate({ 
       ids: selectedBatches, 
       deleteFromShopify 
@@ -380,7 +411,7 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
               onClick={confirmDelete}
               disabled={deleteBatchesMutation.isPending}
             >
-              {deleteBatchesMutation.isPending ? "Deleting..." : "Delete Orders"}
+              Delete Orders
             </Button>
           </DialogFooter>
         </DialogContent>
