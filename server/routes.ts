@@ -377,70 +377,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const batchId = parseInt(req.params.id);
     const { deleteFromShopify } = req.body || {};
 
-    console.log(`🗑️ Delete request for batch ${batchId}, deleteFromShopify: ${deleteFromShopify}`);
+    console.log(`🗑️ DELETE BATCH: Starting deletion for batch ${batchId}, deleteFromShopify: ${deleteFromShopify}`);
 
     try {
-      // First, let's see what batches actually exist
-      const allBatches = await storage.getAllOrderBatches();
-      console.log(`📋 All batches in storage:`, allBatches.map(b => ({ id: b.id, batchId: b.batchId })));
-
       // Get the batch to access created orders
       const batch = await storage.getOrderBatch(batchId);
       if (!batch) {
-        console.log(`❌ Batch ${batchId} not found in storage`);
+        console.log(`❌ DELETE BATCH: Batch ${batchId} not found in storage`);
         return res.status(404).json({ error: "Batch not found" });
       }
 
-      console.log(`✅ Found batch ${batchId}:`, { id: batch.id, batchId: batch.batchId, ordersCount: batch.createdOrders?.length });
+      console.log(`✅ DELETE BATCH: Found batch ${batchId} with ${batch.createdOrders?.length || 0} orders`);
 
-      // If deleteFromShopify is true, try to delete orders from Shopify
-      if (deleteFromShopify && Array.isArray(batch.createdOrders)) {
-        console.log(`🛒 Attempting to delete ${batch.createdOrders.length} orders from Shopify`);
-        let deletedCount = 0;
-        let failedCount = 0;
+      let shopifyDeletionResults = { deletedCount: 0, failedCount: 0 };
+
+      // If deleteFromShopify is true, try to delete orders from Shopify FIRST
+      if (deleteFromShopify && Array.isArray(batch.createdOrders) && batch.createdOrders.length > 0) {
+        console.log(`🛒 DELETE BATCH: Attempting to delete ${batch.createdOrders.length} orders from Shopify`);
         
         for (let i = 0; i < batch.createdOrders.length; i++) {
           const order = batch.createdOrders[i];
+          
+          // Skip orders that don't have valid IDs
+          if (!order.id || typeof order.id !== 'string') {
+            console.log(`⚠️ DELETE BATCH: Skipping order with invalid ID:`, order.id);
+            shopifyDeletionResults.failedCount++;
+            continue;
+          }
+
           try {
-            if (order.id) {
-              await shopifyAPI.deleteOrder(order.id);
-              deletedCount++;
-              console.log(`✅ Deleted order ${order.id} from Shopify (${deletedCount}/${batch.createdOrders.length})`);
-              
-              // Add delay between deletions to avoid rate limits
-              if (i < batch.createdOrders.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between deletions
-              }
-            }
-          } catch (shopifyError) {
-            failedCount++;
-            console.warn(`⚠️ Failed to delete order ${order.id} from Shopify:`, shopifyError);
+            console.log(`🗑️ DELETE BATCH: Deleting Shopify order ${order.id} (${i + 1}/${batch.createdOrders.length})`);
             
-            // Still add delay even on failure to avoid overwhelming the API
+            // Use a more specific deletion method
+            const deleteResult = await shopifyAPI.deleteOrder(order.id.toString());
+            
+            shopifyDeletionResults.deletedCount++;
+            console.log(`✅ DELETE BATCH: Successfully deleted order ${order.id} from Shopify`);
+            
+            // Add delay between deletions to avoid rate limits
             if (i < batch.createdOrders.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 200));
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+          } catch (shopifyError) {
+            shopifyDeletionResults.failedCount++;
+            console.error(`❌ DELETE BATCH: Failed to delete order ${order.id} from Shopify:`, shopifyError);
+            
+            // Add delay even on failure
+            if (i < batch.createdOrders.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
           }
         }
         
-        console.log(`🎯 Shopify deletion summary: ${deletedCount} deleted, ${failedCount} failed`);
+        console.log(`🎯 DELETE BATCH: Shopify deletion complete - ${shopifyDeletionResults.deletedCount} deleted, ${shopifyDeletionResults.failedCount} failed`);
       }
 
-      // Delete the batch from our storage
-      console.log(`🗃️ Deleting batch ${batchId} from storage`);
+      // Now delete the batch from our storage
+      console.log(`🗃️ DELETE BATCH: Removing batch ${batchId} from local storage`);
       const deleted = await storage.deleteOrderBatch(batchId);
-      console.log(`🎯 Batch deletion result:`, deleted);
 
       if (!deleted) {
-        console.log(`❌ Storage deletion failed for batch ${batchId}`);
+        console.log(`❌ DELETE BATCH: Storage deletion failed for batch ${batchId}`);
         return res.status(500).json({ error: "Failed to delete batch from storage" });
       }
 
-      console.log(`🎉 Successfully deleted batch ${batchId}`);
-      res.json({ success: true, message: "Batch deleted successfully" });
+      console.log(`🎉 DELETE BATCH: Successfully completed deletion for batch ${batchId}`);
+      
+      const responseMessage = deleteFromShopify 
+        ? `Batch deleted successfully. Shopify orders: ${shopifyDeletionResults.deletedCount} deleted, ${shopifyDeletionResults.failedCount} failed.`
+        : "Batch deleted successfully from local storage.";
+
+      res.json({ 
+        success: true, 
+        message: responseMessage,
+        shopifyResults: deleteFromShopify ? shopifyDeletionResults : null
+      });
+      
     } catch (error) {
-      console.error("💥 Failed to delete batch:", error);
-      res.status(500).json({ error: "Failed to delete batch", details: (error as Error).message });
+      console.error("💥 DELETE BATCH: Critical error during deletion:", error);
+      res.status(500).json({ 
+        error: "Failed to delete batch", 
+        details: (error as Error).message 
+      });
     }
   });
 

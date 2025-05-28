@@ -508,11 +508,33 @@ export class ShopifyAPI {
 
   async deleteOrder(orderId: string) {
     try {
+      console.log(`🗑️ SHOPIFY DELETE: Attempting to delete order ${orderId}`);
+      
+      // First check if the order exists
+      try {
+        const orderCheck = await this.makeRequest(`/orders/${orderId}.json`, "GET");
+        console.log(`✅ SHOPIFY DELETE: Order ${orderId} exists, proceeding with deletion`);
+      } catch (checkError) {
+        console.log(`⚠️ SHOPIFY DELETE: Order ${orderId} not found or already deleted`);
+        return { success: true, message: "Order not found or already deleted" };
+      }
+
+      // Attempt to delete the order
       const response = await this.makeRequest(`/orders/${orderId}.json`, "DELETE");
+      console.log(`✅ SHOPIFY DELETE: Successfully deleted order ${orderId}`);
+      
       return { success: true, message: "Order deleted from Shopify" };
+      
     } catch (error) {
-      console.error("Failed to delete order from Shopify:", error);
-      throw new Error("Failed to delete order from Shopify");
+      console.error(`❌ SHOPIFY DELETE: Failed to delete order ${orderId}:`, error);
+      
+      // Check if it's a specific error we can handle
+      if (error instanceof Error && error.message.includes("404")) {
+        console.log(`⚠️ SHOPIFY DELETE: Order ${orderId} was already deleted`);
+        return { success: true, message: "Order was already deleted" };
+      }
+      
+      throw new Error(`Failed to delete order ${orderId} from Shopify: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
