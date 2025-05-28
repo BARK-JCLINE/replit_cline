@@ -186,10 +186,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Batch not found" });
       }
 
+      // Validate and limit order count
+      const { orderCount: rawOrderCount, orderDelay } = orderConfig;
+      const orderCount = Math.min(Math.max(Number(rawOrderCount) || 1, 1), 30000);
+      
+      console.log(`🔢 ORDER CREATION: Requested ${rawOrderCount}, validated to ${orderCount} orders for batch ${batchId}`);
+
       // Update batch status to processing
       await storage.updateOrderBatchProgress(batchId, 0, "processing");
 
-      const { orderCount, orderDelay } = orderConfig;
       const createdOrders = [];
 
       for (let i = 0; i < orderCount; i++) {
@@ -399,7 +404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const order = batch.createdOrders[i];
           
           // Skip orders that don't have valid IDs
-          if (!order.id || typeof order.id !== 'string') {
+          if (!order.id || (typeof order.id !== 'string' && typeof order.id !== 'number')) {
             console.log(`⚠️ DELETE BATCH: Skipping order with invalid ID:`, order.id);
             shopifyDeletionResults.failedCount++;
             continue;

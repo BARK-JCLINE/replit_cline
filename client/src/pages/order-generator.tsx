@@ -299,6 +299,16 @@ export default function OrderGenerator() {
       return;
     }
 
+    // Validate order count
+    if (!orderConfig.orderCount || orderConfig.orderCount < 1) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid number of orders (1 or more).",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreatingOrders(true);
     const batchId = `BATCH-${Date.now()}`;
     setCurrentBatchId(batchId);
@@ -309,30 +319,17 @@ export default function OrderGenerator() {
       total: orderConfig.orderCount,
     });
 
-    // Simulate progress updates
-    const progressInterval = setInterval(() => {
-      setCreationProgress(prev => {
-        const newCurrent = Math.min(prev.current + 1, prev.total);
-        const percentage = (newCurrent / prev.total) * 100;
-        return {
-          ...prev,
-          current: newCurrent,
-          percentage: Math.round(percentage),
-          status: `${newCurrent} of ${prev.total} orders created`,
-        };
-      });
-    }, 1000);
-
     try {
       // Clean the config before sending - remove empty line items
       const cleanedConfig = {
         ...orderConfig,
-        lineItems: orderConfig.lineItems.filter(item => item.productId && item.productId.trim() !== "")
+        lineItems: orderConfig.lineItems.filter(item => item.productId && item.productId.trim() !== ""),
+        orderCount: Number(orderConfig.orderCount) // Ensure it's a number
       };
 
       await createOrdersMutation.mutateAsync({ ...cleanedConfig, batchId });
-    } finally {
-      clearInterval(progressInterval);
+    } catch (error) {
+      console.error("Order creation error:", error);
     }
   };
 
