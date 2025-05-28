@@ -445,28 +445,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel order creation
-  app.post("/api/orders/cancel/:batchId", async (req, res) => {
+  app.post("/api/orders/cancel", async (req, res) => {
     try {
-      const { batchId } = req.params;
+      const { batchId } = req.body;
 
-      // Update batch status to cancelled
-      // const [batch] = await db
-      //   .update(orderBatches)
-      //   .set({ 
-      //     status: "failed",
-      //     errorMessage: "Cancelled by user",
-      //     completedAt: new Date()
-      //   })
-      //   .where(eq(orderBatches.batchId, batchId))
-      //   .returning();
+      if (!batchId) {
+        return res.status(400).json({ error: "Batch ID is required" });
+      }
 
-        const batch = await storage.getOrderBatchByBatchId(batchId);
+      const batch = await storage.getOrderBatchByBatchId(batchId);
 
       if (!batch) {
         return res.status(404).json({ error: "Batch not found" });
       }
 
-        await storage.completeOrderBatch(batchId, [], "Cancelled by user");
+      await storage.completeOrderBatch(batchId, [], "Cancelled by user");
 
       res.json({ 
         success: true, 
