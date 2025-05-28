@@ -306,9 +306,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Complete the batch
       const currentBatch = await storage.getOrderBatchByBatchId(batchId);
       const wasCancelled = currentBatch && currentBatch.status === 'failed' && currentBatch.errorMessage === 'Cancelled by user';
+      const hasErrors = createdOrders.some((order: any) => order.error);
       
       if (!wasCancelled) {
-        const hasErrors = createdOrders.some((order: any) => order.error);
         await storage.completeOrderBatch(batchId, createdOrders, hasErrors ? "Some orders failed to create" : undefined);
       } else {
         // Update the cancelled batch with whatever orders were created before cancellation

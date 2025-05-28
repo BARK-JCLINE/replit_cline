@@ -316,11 +316,23 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                         )}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {batch.orderCount}
-                        {createdOrders.length > 1 && (
-                          <span className="text-xs text-gray-500 ml-1">
-                            (+{createdOrders.length - 1} more)
+                        {batch.status === 'failed' && batch.errorMessage === 'Cancelled by user' ? (
+                          <span>
+                            <span className="text-green-600">{createdOrders.length}</span>
+                            <span className="text-gray-500">/{batch.orderCount}</span>
+                            <span className="text-xs text-orange-600 ml-1 block">
+                              (cancelled)
+                            </span>
                           </span>
+                        ) : (
+                          <>
+                            {batch.orderCount}
+                            {createdOrders.length > 1 && (
+                              <span className="text-xs text-gray-500 ml-1">
+                                (+{createdOrders.length - 1} more)
+                              </span>
+                            )}
+                          </>
                         )}
                       </TableCell>
                       <TableCell>
