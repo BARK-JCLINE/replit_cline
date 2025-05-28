@@ -317,15 +317,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const successfulOrders = createdOrders.filter((order: any) => !order.error);
       const finalBatch = await storage.getOrderBatchByBatchId(batchId);
-      const wasCancelled = finalBatch && finalBatch.status === 'failed' && finalBatch.errorMessage === 'Cancelled by user';
+      const finalWasCancelled = finalBatch && finalBatch.status === 'failed' && finalBatch.errorMessage === 'Cancelled by user';
       
       res.json({ 
-        success: !wasCancelled, 
+        success: !finalWasCancelled, 
         batchId,
         ordersCreated: successfulOrders.length,
         orders: createdOrders,
-        hasErrors: hasErrors || wasCancelled,
-        cancelled: wasCancelled
+        hasErrors: hasErrors || finalWasCancelled,
+        cancelled: finalWasCancelled
       });
     } catch (error) {
       console.error("Order creation failed:", error);
