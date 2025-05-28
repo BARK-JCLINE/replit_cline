@@ -227,11 +227,22 @@ export default function OrderGenerator() {
       });
       return orderResponse.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Orders Created Successfully",
-        description: `${orderConfig.orderCount} orders have been created successfully.`,
-      });
+    onSuccess: (data) => {
+      const actualOrdersCreated = data.ordersCreated || 0;
+      const wasCancelled = data.cancelled;
+      
+      if (wasCancelled) {
+        toast({
+          title: "Order Creation Cancelled",
+          description: `Created ${actualOrdersCreated} of ${orderConfig.orderCount} orders before cancellation.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Orders Created Successfully",
+          description: `${actualOrdersCreated} orders have been created successfully.`,
+        });
+      }
       setIsCreatingOrders(false);
       setCurrentBatchId(null);
       refetchBatches();
