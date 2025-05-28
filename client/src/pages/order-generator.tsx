@@ -63,6 +63,7 @@ export default function OrderGenerator() {
   });
 
   const [isCreatingOrders, setIsCreatingOrders] = useState(false);
+  const [isCancellingOrders, setIsCancellingOrders] = useState(false);
   const [creationProgress, setCreationProgress] = useState<OrderCreationProgress>({
     percentage: 0,
     status: "",
@@ -248,6 +249,7 @@ export default function OrderGenerator() {
 
   const cancelOrdersMutation = useMutation({
     mutationFn: async (batchId: string) => {
+      setIsCancellingOrders(true);
       const response = await apiRequest("POST", "/api/orders/cancel", { batchId });
       return response.json();
     },
@@ -257,7 +259,14 @@ export default function OrderGenerator() {
         description: "Order creation has been cancelled successfully.",
       });
       setIsCreatingOrders(false);
+      setIsCancellingOrders(false);
       setCurrentBatchId(null);
+      setCreationProgress({
+        percentage: 0,
+        status: "",
+        current: 0,
+        total: 0,
+      });
       refetchBatches();
     },
     onError: (error) => {
@@ -266,6 +275,7 @@ export default function OrderGenerator() {
         description: "Failed to cancel order creation. Please try again.",
         variant: "destructive",
       });
+      setIsCancellingOrders(false);
     },
   });
 
@@ -596,17 +606,28 @@ export default function OrderGenerator() {
             </div>
 
             {/* Progress Indicator */}
-            {isCreatingOrders && (
-              <Card className="bg-blue-50 border-blue-200">
+            {(isCreatingOrders || isCancellingOrders) && (
+              <Card className={isCancellingOrders ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}>
                 <CardContent className="p-4">
                   <div className="flex items-center mb-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-600 mr-2" />
-                    <span className="text-blue-800 font-medium">Creating Orders...</span>
+                    <Loader2 className={`h-4 w-4 animate-spin mr-2 ${isCancellingOrders ? "text-red-600" : "text-blue-600"}`} />
+                    <span className={`font-medium ${isCancellingOrders ? "text-red-800" : "text-blue-800"}`}>
+                      {isCancellingOrders ? "Cancelling Order Creation..." : "Creating Orders..."}
+                    </span>
                   </div>
-                  <Progress value={creationProgress.percentage} className="mb-2" />
-                  <div className="text-xs text-blue-700">
-                    {creationProgress.status}
-                  </div>
+                  {!isCancellingOrders && (
+                    <>
+                      <Progress value={creationProgress.percentage} className="mb-2" />
+                      <div className="text-xs text-blue-700">
+                        {creationProgress.status}
+                      </div>
+                    </>
+                  )}
+                  {isCancellingOrders && (
+                    <div className="text-xs text-red-700">
+                      Stopping order creation process...
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
