@@ -198,6 +198,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdOrders = [];
 
       for (let i = 0; i < orderCount; i++) {
+        // Check if batch has been cancelled
+        const currentBatch = await storage.getOrderBatchByBatchId(batchId);
+        if (currentBatch && currentBatch.status === 'failed' && currentBatch.errorMessage === 'Cancelled by user') {
+          console.log(`🛑 ORDER CREATION: Batch ${batchId} was cancelled, stopping at order ${i + 1}/${orderCount}`);
+          break;
+        }
+
         try {
           // Add delay if configured
           if (orderDelay && orderDelay > 0) {
@@ -297,15 +304,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Complete the batch
-      const hasErrors = createdOrders.some((order: any) => order.error);
-      await storage.completeOrderBatch(batchId, createdOrders, hasErrors ? "Some orders failed to create" : undefined);
+      const currentBatch = await storage.getOrderBatchByBatchId(batchId);
+      const wasCancelled = currentBatch && currentBatch.status === 'failed' && currentBatch.errorMessage === 'Cancelled by user';
+      
+      if (!wasCancelled) {
+        const hasErrors = createdOrders.some((order: any) => order.error);
+        await storage.completeOrderBatch(batchId, createdOrders, hasErrors ? "Some orders failed to create" : undefined);
+      } else {
+        // Update the cancelled batch with whatever orders were created before cancellation
+        await storage.completeOrderBatch(batchId, createdOrders, "Cancelled by user");
+      }
 
+      const successfulOrders = createdOrders.filter((order: any) => !order.error);
+      const finalBatch = await storage.getOrderBatchByBatchId(batchId);
+      const wasCancelled = finalBatch && finalBatch.status === 'failed' && finalBatch.errorMessage === 'Cancelled by user';
+      
       res.json({ 
-        success: true, 
+        success: !wasCancelled, 
         batchId,
-        ordersCreated: createdOrders.filter((order: any) => !order.error).length,
+        ordersCreated: successfulOrders.length,
         orders: createdOrders,
-        hasErrors
+        hasErrors: hasErrors || wasCancelled,
+        cancelled: wasCancelled
       });
     } catch (error) {
       console.error("Order creation failed:", error);
@@ -501,7 +521,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Batch not found" });
       }
 
-      await storage.completeOrderBatch(batchId, [], "Cancelled by user");
+      // Mark batch as failed with cancellation message to stop ongoing creation
+      await storage.updateOrderBatch(batch.id, { status: 'failed', errorMessage: 'Cancelled by user' });
 
       res.json({ 
         success: true, 

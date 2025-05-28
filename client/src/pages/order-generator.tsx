@@ -319,6 +319,32 @@ export default function OrderGenerator() {
       total: orderConfig.orderCount,
     });
 
+    // Start polling for progress updates
+    const progressInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/batches/${batchId}`);
+        if (response.ok) {
+          const batch = await response.json();
+          if (batch && batch.progress !== undefined) {
+            const current = Math.round((batch.progress / 100) * orderConfig.orderCount);
+            setCreationProgress({
+              percentage: batch.progress,
+              status: `${current} of ${orderConfig.orderCount} orders created`,
+              current: current,
+              total: orderConfig.orderCount,
+            });
+
+            // Stop polling if completed or failed
+            if (batch.status === 'completed' || batch.status === 'failed') {
+              clearInterval(progressInterval);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Progress polling error:", error);
+      }
+    }, 1000); // Poll every second
+
     try {
       // Clean the config before sending - remove empty line items
       const cleanedConfig = {
@@ -330,6 +356,8 @@ export default function OrderGenerator() {
       await createOrdersMutation.mutateAsync({ ...cleanedConfig, batchId });
     } catch (error) {
       console.error("Order creation error:", error);
+    } finally {
+      clearInterval(progressInterval);
     }
   };
 
