@@ -452,21 +452,21 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               name="orderDelay"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Delay Between Orders</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(parseInt(value) || 0)} defaultValue={field.value?.toString()}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select delay..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {ORDER_DELAY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Delay Between Orders (seconds)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="10"
+                      step="0.1"
+                      placeholder="0 for fastest"
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        field.onChange(value);
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

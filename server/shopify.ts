@@ -94,14 +94,6 @@ export class ShopifyAPI {
 
   async createOrder(orderData: ShopifyOrder) {
     try {
-      console.log("🔧 Creating Shopify order for warehouse:", orderData.tags);
-
-      // Get location ID from warehouse tag (format: "contains_kibble, replit, warehouse_om-bbh")
-      const warehouseTag = orderData.tags?.split(',').find(tag => tag.trim().startsWith('warehouse_'));
-      const warehouse = warehouseTag?.trim().replace('warehouse_', '');
-      const locationId = warehouse ? getLocationIdFromWarehouse(warehouse) : undefined;
-      console.log("🎯 Warehouse mapping:", warehouse, "->", locationId);
-
       // Create the order normally
       const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
 
@@ -109,99 +101,9 @@ export class ShopifyAPI {
         throw new Error("Order creation failed - no order returned");
       }
 
-      console.log("📋 Order created:", response.order.id);
-      console.log("🏪 Shopify assigned location_id:", response.order.location_id);
-      console.log("🎯 Warehouse from tags:", warehouse);
-
-      // Step 2: If we have a specific warehouse, manage fulfillment manually
-      if (locationId) {
-        console.log("🚚 Managing fulfillment for warehouse:", this.getWarehouseNameFromId(locationId));
-
-        try {
-          // Wait a moment for any automatic fulfillments to be created
-          console.log("⏳ Waiting for automatic fulfillments to process...");
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          // Check for existing fulfillments (if automatic fulfillment is enabled)
-          const existingFulfillments = await this.getFulfillments(response.order.id);
-          console.log("📦 Found existing fulfillments:", existingFulfillments.length);
-
-          // Cancel any automatic fulfillments that were created
-          for (const fulfillment of existingFulfillments) {
-            if (fulfillment.status !== "cancelled") {
-              console.log("❌ Cancelling automatic fulfillment:", fulfillment.id);
-              try {
-                await this.cancelFulfillment(response.order.id, fulfillment.id);
-                console.log("✅ Automatic fulfillment cancelled successfully");
-              } catch (cancelError) {
-                console.error("⚠️ Failed to cancel fulfillment:", cancelError);
-              }
-            }
-          }
-
-          // Now get fulfillment orders for this order
-          const fulfillmentOrders = await this.getFulfillmentOrders(response.order.id);
-          console.log("📦 Found fulfillment orders:", fulfillmentOrders.length);
-
-          // After cancelling automatic fulfillments, create new one from correct location
-          if (existingFulfillments.length > 0) {
-            console.log("🚚 Creating new fulfillment from correct location:", locationId);
-            try {
-              const newFulfillment = await this.createFulfillment(
-                response.order.id, 
-                locationId, 
-                response.order.line_items
-              );
-              console.log("✅ New fulfillment created from:", this.getWarehouseNameFromId(locationId));
-            } catch (createError) {
-              console.error("⚠️ Failed to create new fulfillment:", createError);
-            }
-          } else {
-            // No automatic fulfillments, work with fulfillment orders
-            for (const fulfillmentOrder of fulfillmentOrders) {
-              if (fulfillmentOrder.status === "open" || fulfillmentOrder.status === "scheduled") {
-                console.log("🔄 Moving fulfillment order", fulfillmentOrder.id, "to location:", locationId);
-
-                try {
-                  await this.moveToLocation(fulfillmentOrder.id, locationId);
-                  console.log("✅ Fulfillment order moved to:", this.getWarehouseNameFromId(locationId));
-                  console.log("🔍 DEBUG: About to start fulfillment creation process...");
-                  console.log("🔍 DEBUG: Code execution reaching fulfillment section...");
-
-                  // Add a small delay to ensure the move is processed
-                  console.log("⏳ Waiting for fulfillment order move to be processed...");
-                  await new Promise(resolve => setTimeout(resolve, 500));
-
-                  // Now fulfill the fulfillment order from the correct location
-                  console.log("📦 Creating fulfillment from warehouse:", this.getWarehouseNameFromId(locationId));
-                  console.log("🔧 Fulfillment Order ID:", fulfillmentOrder.id, "Location ID:", locationId);
-
-                  try {
-                    const fulfillment = await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
-                    console.log("✅ Order fulfilled from:", this.getWarehouseNameFromId(locationId));
-                    console.log("🎯 Fulfillment created:", fulfillment);
-                  } catch (fulfillError) {
-                    console.error("⚠️ Failed to fulfill from location:", fulfillError);
-                    console.error("⚠️ Error details:", JSON.stringify(fulfillError, null, 2));
-                  }
-
-                } catch (moveError) {
-                  console.error("⚠️ Failed to move fulfillment order:", moveError);
-
-                  console.log("🚚 Attempting direct fulfillment from location:", locationId);
-                  await this.fulfillFromLocation(fulfillmentOrder.id, locationId);
-                  console.log("✅ Fulfilled directly from:", this.getWarehouseNameFromId(locationId));
-                }
-              }
-            }
-          }
-
-        } catch (fulfillmentError) {
-          console.error("⚠️ Fulfillment management failed:", fulfillmentError);
-          console.log("📦 Order created but fulfillment may need manual assignment");
-        }
-      }
-
+      // Skip complex fulfillment logic for bulk creation speed
+      // Orders will use automatic fulfillment from Shopify based on location_id
+      
       return response;
     } catch (error) {
       console.error("❌ Error in createOrder:", error);

@@ -60,10 +60,10 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deleteFromShopify: batchesToDelete.deleteFromShopify })
           });
-          
+
           if (response.ok) {
             succeeded++;
-            
+
             // Show progress for bulk deletions
             if (total > 1) {
               toast({
@@ -85,14 +85,14 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
           await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
         }
       }
-      
+
       return { succeeded, failed, total };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
       setSelectedBatches([]);
       onRefresh();
-      
+
       // Show final result
       if (data.failed > 0) {
         toast({
@@ -158,7 +158,7 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
     // Close dialog immediately to allow continued interaction
     setDeleteDialogOpen(false);
     setDeleteFromShopify(false);
-    
+
     // Start deletion process
     deleteBatchesMutation.mutate({ 
       ids: selectedBatches, 
@@ -285,7 +285,7 @@ export function OrderHistory({ batches, onRefresh }: OrderHistoryProps) {
                 {batches.map((batch) => {
                   const createdOrders = Array.isArray(batch.createdOrders) ? batch.createdOrders : [];
                   const firstOrder = createdOrders[0];
-                  
+
                   return (
                     <TableRow key={batch.id} className="hover:bg-gray-50">
                       <TableCell>

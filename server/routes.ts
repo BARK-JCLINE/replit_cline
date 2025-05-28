@@ -206,13 +206,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         try {
-          // Add delay if configured
-          if (orderDelay && orderDelay > 0) {
-            // Add minimal delay between orders to avoid rate limits
-            if (i < orderCount - 1) {
-              const minDelay = Math.max(orderDelay * 1000, 200); // Minimum 200ms delay
-              await new Promise(resolve => setTimeout(resolve, minDelay));
-            }
+          // Add delay if configured (no minimum delay for speed)
+          if (orderDelay && orderDelay > 0 && i < orderCount - 1) {
+            await new Promise(resolve => setTimeout(resolve, orderDelay * 1000));
           }
 
           // Create the Shopify order from configuration
@@ -263,29 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           createdOrders.push(order);
 
-          // Fulfill the order after creation
-          try {
-            console.log("🚚 Attempting to fulfill order:", shopifyResponse.order.id, "from warehouse:", configuration.warehouse);
-
-            // Get fulfillment orders for this order
-            const fulfillmentOrders = await shopifyAPI.getFulfillmentOrders(shopifyResponse.order.id);
-
-            if (fulfillmentOrders.length > 0) {
-              const fulfillmentOrder = fulfillmentOrders[0];
-              console.log("📦 Requesting fulfillment for fulfillment order:", fulfillmentOrder.id);
-
-              await shopifyAPI.makeRequest(`/fulfillment_orders/${fulfillmentOrder.id}/fulfillment_request.json`, "POST", {
-                fulfillment_request: {
-                  message: "Request fulfillment from warehouse"
-                }
-              });
-
-              console.log("✅ Order fulfillment requested successfully");
-            }
-          } catch (fulfillError) {
-            console.error("⚠️ Failed to fulfill order:", fulfillError);
-            // Don't fail the entire process if fulfillment fails
-          }
+          // Skip fulfillment for speed - orders will use automatic fulfillment
 
           // Update progress
           const progress = Math.round(((i + 1) / orderCount) * 100);
