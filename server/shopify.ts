@@ -52,6 +52,12 @@ export class ShopifyAPI {
   private async makeRequest(endpoint: string, method: string = "GET", data?: any) {
     const url = `${this.baseUrl}/admin/api/${this.apiVersion}${endpoint}`;
     
+    // Log the request details for debugging
+    console.log(`🔍 SHOPIFY API: ${method} ${url}`);
+    if (method === "DELETE") {
+      console.log(`🗑️ SHOPIFY API: Confirmed DELETE request to ${endpoint}`);
+    }
+    
     const headers: Record<string, string> = {
       "X-Shopify-Access-Token": this.accessToken,
       "Content-Type": "application/json",
@@ -64,13 +70,23 @@ export class ShopifyAPI {
 
     if (data) {
       options.body = JSON.stringify(data);
+      console.log(`📝 SHOPIFY API: Request body:`, JSON.stringify(data, null, 2));
     }
 
     const response = await fetch(url, options);
     
+    console.log(`📊 SHOPIFY API: Response status: ${response.status}`);
+    
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`❌ SHOPIFY API: Error response: ${errorText}`);
       throw new Error(`Shopify API Error: ${response.status} - ${errorText}`);
+    }
+
+    // For DELETE requests, there might not be a JSON response
+    if (method === "DELETE" && response.status === 200) {
+      console.log(`✅ SHOPIFY API: DELETE request successful`);
+      return { success: true };
     }
 
     return response.json();
@@ -508,30 +524,66 @@ export class ShopifyAPI {
 
   async deleteOrder(orderId: string) {
     try {
-      console.log(`🗑️ SHOPIFY DELETE: Attempting to delete order ${orderId}`);
+      console.log(`🗑️ SHOPIFY DELETE: Starting deletion process for order ${orderId}`);
       
-      // First check if the order exists
+      // Validate orderId format
+      if (!orderId || orderId.trim() === '') {
+        throw new Error("Invalid order ID provided");
+      }
+
+      // Clean orderId - ensure it's just the numeric ID
+      const cleanOrderId = orderId.toString().trim();
+      console.log(`🔍 SHOPIFY DELETE: Using clean order ID: ${cleanOrderId}`);
+      
+      // First, try to get the order to confirm it exists
+      let orderExists = false;
       try {
-        const orderCheck = await this.makeRequest(`/orders/${orderId}.json`, "GET");
-        console.log(`✅ SHOPIFY DELETE: Order ${orderId} exists, proceeding with deletion`);
+        await this.makeRequest(`/orders/${cleanOrderId}.json`, "GET");
+        orderExists = true;
+        console.log(`✅ SHOPIFY DELETE: Order ${cleanOrderId} confirmed to exist`);
       } catch (checkError) {
-        console.log(`⚠️ SHOPIFY DELETE: Order ${orderId} not found or already deleted`);
+        console.log(`⚠️ SHOPIFY DELETE: Order ${cleanOrderId} not found - may already be deleted`);
         return { success: true, message: "Order not found or already deleted" };
       }
 
-      // Attempt to delete the order
-      const response = await this.makeRequest(`/orders/${orderId}.json`, "DELETE");
-      console.log(`✅ SHOPIFY DELETE: Successfully deleted order ${orderId}`);
-      
-      return { success: true, message: "Order deleted from Shopify" };
+      if (orderExists) {
+        // Perform the actual deletion using explicit DELETE method
+        console.log(`🗑️ SHOPIFY DELETE: Executing DELETE request for order ${cleanOrderId}`);
+        
+        try {
+          // Use the makeRequest method with explicit DELETE 
+          await this.makeRequest(`/orders/${cleanOrderId}.json`, "DELETE", undefined);
+          console.log(`✅ SHOPIFY DELETE: Successfully sent DELETE request for order ${cleanOrderId}`);
+          
+          // Verify deletion by trying to get the order again
+          try {
+            await this.makeRequest(`/orders/${cleanOrderId}.json`, "GET");
+            console.log(`⚠️ SHOPIFY DELETE: Order ${cleanOrderId} still exists after deletion attempt`);
+            return { success: false, message: "Order deletion may have failed - order still exists" };
+          } catch (verifyError) {
+            console.log(`✅ SHOPIFY DELETE: Order ${cleanOrderId} successfully deleted - no longer accessible`);
+            return { success: true, message: "Order successfully deleted from Shopify" };
+          }
+          
+        } catch (deleteError) {
+          console.error(`❌ SHOPIFY DELETE: DELETE request failed for order ${cleanOrderId}:`, deleteError);
+          throw deleteError;
+        }
+      }
       
     } catch (error) {
-      console.error(`❌ SHOPIFY DELETE: Failed to delete order ${orderId}:`, error);
+      console.error(`💥 SHOPIFY DELETE: Critical error deleting order ${orderId}:`, error);
       
-      // Check if it's a specific error we can handle
-      if (error instanceof Error && error.message.includes("404")) {
-        console.log(`⚠️ SHOPIFY DELETE: Order ${orderId} was already deleted`);
-        return { success: true, message: "Order was already deleted" };
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message.includes("404")) {
+          console.log(`⚠️ SHOPIFY DELETE: Order ${orderId} was already deleted (404 error)`);
+          return { success: true, message: "Order was already deleted" };
+        }
+        
+        if (error.message.includes("403")) {
+          throw new Error(`Permission denied - cannot delete order ${orderId}. Check API permissions.`);
+        }
       }
       
       throw new Error(`Failed to delete order ${orderId} from Shopify: ${error instanceof Error ? error.message : 'Unknown error'}`);
