@@ -427,8 +427,17 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                       type="number"
                       min="1"
                       max="30000"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      placeholder="Enter number of orders..."
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "") {
+                          field.onChange("");
+                        } else {
+                          const numValue = parseInt(value);
+                          field.onChange(isNaN(numValue) ? "" : numValue);
+                        }
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
