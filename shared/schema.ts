@@ -49,7 +49,7 @@ export const insertOrderConfigurationSchema = createInsertSchema(orderConfigurat
   customerLastName: z.string().min(1, "Last name is required"),
   customerEmail: z.string().email("Valid email is required"),
   customTags: z.array(z.string()).optional(),
-  orderCount: z.number().min(1).max(100),
+  orderCount: z.number().min(1).max(30000),
   orderDelay: z.number().min(0).max(60),
 }).omit({
   id: true,
@@ -58,7 +58,7 @@ export const insertOrderConfigurationSchema = createInsertSchema(orderConfigurat
 
 export const insertOrderBatchSchema = createInsertSchema(orderBatches, {
   batchId: z.string().min(1),
-  orderCount: z.number().min(1).max(100),
+  orderCount: z.number().min(1).max(30000),
   status: z.enum(["pending", "processing", "completed", "failed"]),
 }).omit({
   id: true,

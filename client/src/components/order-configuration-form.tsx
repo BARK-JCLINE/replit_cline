@@ -426,7 +426,7 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                     <Input
                       type="number"
                       min="1"
-                      max="100"
+                      max="30000"
                       {...field}
                       onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
                     />
