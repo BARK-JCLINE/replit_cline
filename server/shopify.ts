@@ -8,6 +8,10 @@ export interface ShopifyLineItem {
   price: string;
   sku?: string;
   fulfillment_service?: string;
+  properties?: Array<{
+    name: string;
+    value: string;
+  }>;
 }
 
 export interface ShopifyOrder {
@@ -25,6 +29,12 @@ export interface ShopifyOrder {
   financial_status: "paid";
   fulfillment_status?: string;
   location_id?: number; // Add location_id to specify warehouse
+  metafields?: Array<{
+    namespace: string;
+    key: string;
+    value: string;
+    type: string;
+  }>;
 }
 
 export interface ShopifyAddress {
@@ -52,12 +62,6 @@ export class ShopifyAPI {
   private async makeRequest(endpoint: string, method: string = "GET", data?: any) {
     const url = `${this.baseUrl}/admin/api/${this.apiVersion}${endpoint}`;
 
-    // Log the request details for debugging
-    console.log(`🔍 SHOPIFY API: ${method} ${url}`);
-    if (method === "DELETE") {
-      console.log(`🗑️ SHOPIFY API: Confirmed DELETE request to ${endpoint}`);
-    }
-
     const headers: Record<string, string> = {
       "X-Shopify-Access-Token": this.accessToken,
       "Content-Type": "application/json",
@@ -70,22 +74,17 @@ export class ShopifyAPI {
 
     if (data) {
       options.body = JSON.stringify(data);
-      console.log(`📝 SHOPIFY API: Request body:`, JSON.stringify(data, null, 2));
     }
 
     const response = await fetch(url, options);
 
-    console.log(`📊 SHOPIFY API: Response status: ${response.status}`);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ SHOPIFY API: Error response: ${errorText}`);
       throw new Error(`Shopify API Error: ${response.status} - ${errorText}`);
     }
 
     // For DELETE requests, there might not be a JSON response
     if (method === "DELETE" && response.status === 200) {
-      console.log(`✅ SHOPIFY API: DELETE request successful`);
       return { success: true };
     }
 
@@ -93,22 +92,13 @@ export class ShopifyAPI {
   }
 
   async createOrder(orderData: ShopifyOrder) {
-    try {
-      // Create the order normally
-      const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
-
-      if (!response.order) {
-        throw new Error("Order creation failed - no order returned");
-      }
-
-      // Skip complex fulfillment logic for bulk creation speed
-      // Orders will use automatic fulfillment from Shopify based on location_id
-      
-      return response;
-    } catch (error) {
-      console.error("❌ Error in createOrder:", error);
-      throw error;
+    const response = await this.makeRequest("/orders.json", "POST", { order: orderData });
+    
+    if (!response.order) {
+      throw new Error("Order creation failed - no order returned");
     }
+
+    return response;
   }
 
   private getWarehouseNameFromId(locationId: number): string {
@@ -495,6 +485,10 @@ export class ShopifyAPI {
   async getLocations() {
     return this.makeRequest("/locations.json");
   }
+
+  
+
+  
 }
 
 // Map warehouse codes to Shopify location IDs
@@ -508,9 +502,10 @@ function getLocationIdFromWarehouse(warehouse: string): number | undefined {
   return warehouseMap[warehouse];
 }
 
-export function createShopifyOrderFromConfig(config: OrderConfiguration): ShopifyOrder {
-  console.log("🔧 Creating Shopify order for warehouse:", config.warehouse);
+// Cache for product lookups to avoid repeated API calls
+const productCache = new Map<string, any>();
 
+export async function createShopifyOrderFromConfig(config: OrderConfiguration): Promise<ShopifyOrder> {
   // Map addresses and use customer details from config
   const getAddressFromConfig = (addressKey: string): ShopifyAddress => {
     const baseAddress = {
@@ -552,33 +547,91 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
   };
 
   const address = getAddressFromConfig(config.address);
-
-  // Get the Shopify location ID for the selected warehouse
   const locationId = getLocationIdFromWarehouse(config.warehouse);
-  console.log("🎯 Warehouse mapping:", config.warehouse, "->", locationId);
-
-  // Get the specific fulfillment service for the warehouse
   const fulfillmentService = getFulfillmentServiceFromWarehouse(config.warehouse);
-  console.log("🚚 Using fulfillment service:", fulfillmentService, "for warehouse:", config.warehouse);
 
-  // Convert line items using customer's line items data with specific fulfillment service
-  const lineItems: ShopifyLineItem[] = (config.lineItems as any[]).map((item: any) => ({
-    title: `Product ${item.productId}`,
-    quantity: item.quantity,
-    price: "10.00", // Default price - will be updated when we find actual product
-    sku: item.productId,
-    fulfillment_service: fulfillmentService, // Use specific OM fulfillment service
-  }));
+  // Convert line items with proper product lookup
+  const lineItems: ShopifyLineItem[] = [];
+  const shopifyInstance = new ShopifyAPI();
 
-  // Create tags from configuration (only use customTags, not subscriptionType)
+  for (const item of config.lineItems as any[]) {
+    // Check cache first
+    if (productCache.has(item.productId)) {
+      const cachedProduct = productCache.get(item.productId);
+      lineItems.push({
+        variant_id: cachedProduct.variant_id,
+        product_id: cachedProduct.product_id,
+        title: cachedProduct.title,
+        quantity: item.quantity,
+        price: cachedProduct.price,
+        sku: item.productId,
+        fulfillment_service: fulfillmentService,
+      });
+      continue;
+    }
+
+    // Actually look up the product in Shopify
+    try {
+      const productData = await shopifyInstance.searchProductBySku(item.productId);
+      
+      if (productData) {
+        // Found real product - use actual data
+        const lineItem = {
+          variant_id: productData.variant_id,
+          product_id: productData.product_id,
+          title: productData.title,
+          quantity: item.quantity,
+          price: productData.price,
+          sku: item.productId,
+          fulfillment_service: fulfillmentService,
+        };
+
+        // Cache the real product data
+        productCache.set(item.productId, {
+          variant_id: productData.variant_id,
+          product_id: productData.product_id,
+          title: productData.title,
+          price: productData.price,
+        });
+
+        lineItems.push(lineItem);
+      } else {
+        // Product not found - create with SKU only (let Shopify handle it)
+        console.warn(`Product with SKU ${item.productId} not found in Shopify`);
+        const lineItem = {
+          title: `Product ${item.productId}`,
+          quantity: item.quantity,
+          price: "0.00", // Let Shopify use product price
+          sku: item.productId,
+          fulfillment_service: fulfillmentService,
+        };
+
+        lineItems.push(lineItem);
+      }
+    } catch (error) {
+      console.error(`Error looking up product ${item.productId}:`, error);
+      // Fallback to SKU-only line item
+      const lineItem = {
+        title: `Product ${item.productId}`,
+        quantity: item.quantity,
+        price: "0.00",
+        sku: item.productId,
+        fulfillment_service: fulfillmentService,
+      };
+
+      lineItems.push(lineItem);
+    }
+  }
+
+  // Create simple tags from configuration
   const allTags = [
     ...(config.customTags || []),
     "replit",
-    `warehouse_${config.warehouse}`, // Add warehouse location to tags
+    `warehouse_${config.warehouse}`,
   ];
   const tags = allTags.join(", ");
 
-  return {
+  const orderData: ShopifyOrder = {
     line_items: lineItems,
     customer: {
       first_name: config.customerFirstName,
@@ -591,18 +644,18 @@ export function createShopifyOrderFromConfig(config: OrderConfiguration): Shopif
     note: `Created with Replit tool - Warehouse: ${config.warehouse.toUpperCase()}`,
     source_name: "QA Test Generator",
     financial_status: "paid",
-    location_id: locationId, // Set fulfillment warehouse before auto-fulfillment
+    location_id: locationId,
   };
+
+  return orderData;
 }
 
-function getFulfillmentServiceFromWarehouse(warehouse: string): number | string {
-  // Use the actual fulfillment service IDs from your Shopify store
-  const fulfillmentServiceMap: Record<string, number> = {
-    "om-bbl": 67412590867, // OM Fulfillment Service BBL
-    "om-bbh": 69071995155, // OM Fulfillment Service BBH
-    "om-bbp": 68309319955  // OM Fulfillment Service BBP
-  };
-  return fulfillmentServiceMap[warehouse] || "manual";
+function getFulfillmentServiceFromWarehouse(warehouse: string): string {
+  // Use manual fulfillment service for all warehouses to avoid invalid service errors
+  // The location_id will handle the warehouse assignment correctly
+  return "manual";
 }
+
+
 
 export const shopifyAPI = new ShopifyAPI();

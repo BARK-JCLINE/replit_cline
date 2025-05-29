@@ -230,7 +230,7 @@ export default function OrderGenerator() {
     onSuccess: (data) => {
       const actualOrdersCreated = data.ordersCreated || 0;
       const wasCancelled = data.cancelled;
-      
+
       if (wasCancelled) {
         toast({
           title: "Order Creation Cancelled",
@@ -291,11 +291,21 @@ export default function OrderGenerator() {
   });
 
   const handleCreateOrders = async () => {
+    // Check required customer fields
+    if (!orderConfig.customerFirstName?.trim() || !orderConfig.customerLastName?.trim() || !orderConfig.customerEmail?.trim()) {
+      toast({
+        title: "Required Fields Missing",
+        description: "Please fill in first name, last name, and email address before creating orders.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Basic validation
-    if (!orderConfig.warehouse || !orderConfig.address) {
+    if (!orderConfig.address) {
       toast({
         title: "Validation Error",
-        description: "Please select warehouse and address before creating orders.",
+        description: "Please select an address before creating orders.",
         variant: "destructive",
       });
       return;
@@ -466,6 +476,50 @@ export default function OrderGenerator() {
     });
   };
 
+  const handleGenerateCSV = async () => {
+    try {
+      const response = await fetch('/api/generate-csv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderConfig),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate CSV');
+      }
+
+      // Get the filename from the response headers or use a default
+      const filename = 'shopify-orders.csv';
+
+      // Create a blob from the response
+      const blob = await response.blob();
+
+      // Create a temporary URL and download the file
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "CSV file generated and downloaded successfully!",
+      });
+    } catch (error) {
+      console.error('Failed to generate CSV:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate CSV file.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCancelOrders = () => {
     if (currentBatchId) {
       cancelOrdersMutation.mutate(currentBatchId);
@@ -577,6 +631,7 @@ export default function OrderGenerator() {
                 <OrderConfigurationForm
                   config={orderConfig}
                   onChange={setOrderConfig}
+                  onGenerateCSV={handleGenerateCSV}
                 />
               </CardContent>
             </Card>
@@ -591,8 +646,16 @@ export default function OrderGenerator() {
             <div className="space-y-3">
               <Button
                 onClick={handleCreateOrders}
-                disabled={isCreatingOrders || createOrdersMutation.isPending}
-                className="w-full bg-blue-600 hover:bg-blue-800 text-white font-medium py-3"
+                disabled={
+                  isCreatingOrders || 
+                  createOrdersMutation.isPending ||
+                  !orderConfig.customerFirstName?.trim() ||
+                  !orderConfig.customerLastName?.trim() ||
+                  !orderConfig.customerEmail?.trim() ||
+                  !orderConfig.address ||
+                  orderConfig.lineItems.filter(item => item.productId?.trim()).length === 0
+                }
+                className="w-full bg-blue-600 hover:bg-blue-800 text-white font-medium py-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isCreatingOrders || createOrdersMutation.isPending ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -601,6 +664,8 @@ export default function OrderGenerator() {
                 )}
                 Create Test Orders
               </Button>
+
+              
               {isCreatingOrders && (
                 <Button
                   onClick={handleCancelOrders}
@@ -610,193 +675,170 @@ export default function OrderGenerator() {
                 >
                   {cancelOrdersMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <XCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Cancel Orders
-                </Button>
-              )}
-
-              <Button
-                onClick={handleValidateConfig}
-                disabled={validateMutation.isPending}
-                variant="outline"
-                className="w-full"
-              >
-                {validateMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <XCircle className="h-4 w-4 mr-2" />
                 )}
-                Validate Configuration
+                Cancel Orders
               </Button>
-
-              <Button
-                onClick={handleExportConfig}
-                variant="outline"
-                className="w-full"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Configuration
-              </Button>
-            </div>
-
-            {/* Progress Indicator */}
-            {(isCreatingOrders || isCancellingOrders) && (
-              <Card className={isCancellingOrders ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}>
-                <CardContent className="p-4">
-                  <div className="flex items-center mb-2">
-                    <Loader2 className={`h-4 w-4 animate-spin mr-2 ${isCancellingOrders ? "text-red-600" : "text-blue-600"}`} />
-                    <span className={`font-medium ${isCancellingOrders ? "text-red-800" : "text-blue-800"}`}>
-                      {isCancellingOrders ? "Cancelling Order Creation..." : "Creating Orders..."}
-                    </span>
-                  </div>
-                  {!isCancellingOrders && (
-                    <>
-                      <Progress value={creationProgress.percentage} className="mb-2" />
-                      <div className="text-xs text-blue-700">
-                        {creationProgress.status}
-                      </div>
-                    </>
-                  )}
-                  {isCancellingOrders && (
-                    <div className="text-xs text-red-700">
-                      Stopping order creation process...
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             )}
           </div>
-        </div>
 
-        {/* Order History Section */}
-        <div className="mt-12">
-          <OrderHistory batches={orderBatches} onRefresh={refetchBatches} />
-        </div>
-      </main>
-
-      {/* Save Template Dialog */}
-      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Save Template</DialogTitle>
-            <DialogDescription>
-              Choose whether to create a new template or update an existing one.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <RadioGroup 
-              value={selectedExistingTemplate ? "update" : "new"} 
-              onValueChange={(value) => {
-                if (value === "new") {
-                  setSelectedExistingTemplate(null);
-                } else {
-                  if (existingConfigurations.length > 0) {
-                    setSelectedExistingTemplate(existingConfigurations[0].id);
-                  }
-                }
-              }}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="new" id="new" />
-                <Label htmlFor="new">Create new template</Label>
-              </div>
-              {existingConfigurations.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="update" id="update" />
-                  <Label htmlFor="update">Update existing template</Label>
+          {/* Progress Indicator */}
+          {(isCreatingOrders || isCancellingOrders) && (
+            <Card className={isCancellingOrders ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}>
+              <CardContent className="p-4">
+                <div className="flex items-center mb-2">
+                  <Loader2 className={`h-4 w-4 animate-spin mr-2 ${isCancellingOrders ? "text-red-600" : "text-blue-600"}`} />
+                  <span className={`font-medium ${isCancellingOrders ? "text-red-800" : "text-blue-800"}`}>
+                    {isCancellingOrders ? "Cancelling Order Creation..." : "Creating Orders..."}
+                  </span>
                 </div>
-              )}
-            </RadioGroup>
+                {!isCancellingOrders && (
+                  <>
+                    <Progress value={creationProgress.percentage} className="mb-2" />
+                    <div className="text-xs text-blue-700">
+                      {creationProgress.status}
+                    </div>
+                  </>
+                )}
+                {isCancellingOrders && (
+                  <div className="text-xs text-red-700">
+                    Stopping order creation process...
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
 
-            {!selectedExistingTemplate ? (
-              <div className="space-y-2">
-                <Label htmlFor="template-name">Template Name</Label>
-                <Input
-                  id="template-name"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="e.g., BB Subscription - US Orders"
-                  autoFocus
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="existing-template">Select Template to Update</Label>
-                <select 
-                  id="existing-template"
-                  className="w-full p-2 border border-gray-300 rounded-md"
-                  value={selectedExistingTemplate || ""}
-                  onChange={(e) => setSelectedExistingTemplate(Number(e.target.value))}
-                >
-                  {existingConfigurations.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name} ({template.warehouse} • {template.address})
-                    </option>
-                  ))}
-                </select>
+      {/* Order History Section */}
+      <div className="mt-12">
+        <OrderHistory batches={orderBatches} onRefresh={refetchBatches} />
+      </div>
+    </main>
+
+    {/* Save Template Dialog */}
+    <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Save Template</DialogTitle>
+          <DialogDescription>
+            Choose whether to create a new template or update an existing one.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <RadioGroup 
+            value={selectedExistingTemplate ? "update" : "new"} 
+            onValueChange={(value) => {
+              if (value === "new") {
+                setSelectedExistingTemplate(null);
+              } else {
+                if (existingConfigurations.length > 0) {
+                  setSelectedExistingTemplate(existingConfigurations[0].id);
+                }
+              }
+            }}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="new" id="new" />
+              <Label htmlFor="new">Create new template</Label>
+            </div>
+            {existingConfigurations.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="update" id="update" />
+                <Label htmlFor="update">Update existing template</Label>
               </div>
             )}
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowSaveDialog(false);
-                setTemplateName("");
-                setSelectedExistingTemplate(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleConfirmSave}
-              disabled={saveTemplateMutation.isPending || updateTemplateMutation.isPending}
-            >
-              {(saveTemplateMutation.isPending || updateTemplateMutation.isPending) ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
-              {selectedExistingTemplate ? "Update Template" : "Save Template"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </RadioGroup>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Template</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete the template "{templateToDelete?.name}"? 
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setTemplateToDelete(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => {
-                if (templateToDelete) {
-                  deleteTemplateMutation.mutate(templateToDelete.id);
-                }
-              }}
-              disabled={deleteTemplateMutation.isPending}
-            >
-              {deleteTemplateMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+          {!selectedExistingTemplate ? (
+            <div className="space-y-2">
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g., BB Subscription - US Orders"
+                autoFocus
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="existing-template">Select Template to Update</Label>
+              <select 
+                id="existing-template"
+                className="w-full p-2 border border-gray-300 rounded-md"
+                value={selectedExistingTemplate || ""}
+                onChange={(e) => setSelectedExistingTemplate(Number(e.target.value))}
+              >
+                {existingConfigurations.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} ({template.warehouse} • {template.address})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setShowSaveDialog(false);
+              setTemplateName("");
+              setSelectedExistingTemplate(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmSave}
+            disabled={saveTemplateMutation.isPending || updateTemplateMutation.isPending}
+          >
+            {(saveTemplateMutation.isPending || updateTemplateMutation.isPending) ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : null}
+            {selectedExistingTemplate ? "Update Template" : "Save Template"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Delete Confirmation Dialog */}
+    <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Template</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete the template "{templateToDelete?.name}"? 
+            This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setDeleteDialogOpen(false);
+              setTemplateToDelete(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={() => {
+              if (templateToDelete) {
+                deleteTemplateMutation.mutate(templateToDelete.id);
+              }
+            }}
+            disabled={deleteTemplateMutation.isPending}
+          >
+            {deleteTemplateMutation.isPending ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
+);
 }

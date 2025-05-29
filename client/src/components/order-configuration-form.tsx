@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,7 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Warehouse, Box, Tags, MapPin, Copy, Plus, Trash2, User } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Warehouse, Box, Tags, MapPin, Copy, Plus, Trash2, User, Download } from "lucide-react";
 import {
   WAREHOUSE_OPTIONS,
   ADDRESS_OPTIONS,
@@ -34,9 +36,11 @@ import {
 interface OrderConfigurationFormProps {
   config: InsertOrderConfiguration;
   onChange: (config: InsertOrderConfiguration) => void;
+  onGenerateCSV: () => void;
 }
 
-export function OrderConfigurationForm({ config, onChange }: OrderConfigurationFormProps) {
+export function OrderConfigurationForm({ config, onChange, onGenerateCSV }: OrderConfigurationFormProps) {
+  const [randomizeData, setRandomizeData] = useState(false);
   const form = useForm<InsertOrderConfiguration>({
     resolver: zodResolver(insertOrderConfigurationSchema),
     defaultValues: config,
@@ -83,14 +87,14 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
             <User className="text-blue-600 mr-2 h-5 w-5" />
             Customer Details
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="customerFirstName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>First Name</FormLabel>
+                  <FormLabel>First Name *</FormLabel>
                   <FormControl>
                     <Input placeholder="John" {...field} />
                   </FormControl>
@@ -98,13 +102,13 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="customerLastName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Last Name</FormLabel>
+                  <FormLabel>Last Name *</FormLabel>
                   <FormControl>
                     <Input placeholder="Doe" {...field} />
                   </FormControl>
@@ -113,13 +117,13 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
               )}
             />
           </div>
-          
+
           <FormField
             control={form.control}
             name="customerEmail"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email Address</FormLabel>
+                <FormLabel>Email Address *</FormLabel>
                 <FormControl>
                   <Input placeholder="john.doe@example.com" type="email" {...field} />
                 </FormControl>
@@ -160,13 +164,13 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Address *</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -194,9 +198,9 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
             <Box className="text-blue-600 mr-2 h-5 w-5" />
-            Line Items Configuration
+            Line Items Configuration *
           </h3>
-          
+
           {/* SKU Template Helper */}
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-4">
@@ -301,26 +305,26 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                           onChange={(e) => {
                             const currentValues = (config.subscriptionType || "").split(",").filter(v => v);
                             let newValues;
-                            
+
                             if (e.target.checked) {
                               newValues = [...currentValues, option.value];
                             } else {
                               newValues = currentValues.filter(v => v !== option.value);
                             }
-                            
+
                             const newSubscriptionType = newValues.join(",");
                             field.onChange(newSubscriptionType);
-                            
+
                             // Auto-add appropriate tags based on selected order types
                             let newTags = [...(config.customTags || [])];
-                            
+
                             // Remove existing auto-tags first
                             newTags = newTags.filter(tag => 
                               tag !== "Ordergroove Trigger Order" && 
                               tag !== "Ordergroove Subscription Order" && 
                               tag !== "contains_kibble"
                             );
-                            
+
                             // Add appropriate tags based on all selections
                             newValues.forEach(value => {
                               if (value === "first-subscription") {
@@ -331,7 +335,7 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                                 newTags.push("contains_kibble");
                               }
                             });
-                            
+
                             // Update the config with new tags
                             const newConfig = { ...config, subscriptionType: newSubscriptionType, customTags: newTags };
                             form.setValue("customTags", newTags);
@@ -407,8 +411,6 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
 
         <Separator />
 
-
-
         {/* Bulk Generation Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
@@ -444,9 +446,7 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                 </FormItem>
               )}
             />
-            
 
-            
             <FormField
               control={form.control}
               name="orderDelay"
@@ -471,6 +471,30 @@ export function OrderConfigurationForm({ config, onChange }: OrderConfigurationF
                 </FormItem>
               )}
             />
+          </div>
+
+          <Button 
+            variant="secondary" 
+            type="button"
+            onClick={onGenerateCSV}
+          >
+            Generate CSV for Matrixify
+            <Download className="h-4 w-4 ml-2" />
+          </Button>
+
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="randomize-data" onCheckedChange={setRandomizeData} />
+              <label
+                htmlFor="randomize-data"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Randomize data
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 ml-6">
+              Selecting this will disregard any order settings selected in this tool
+            </p>
           </div>
         </div>
       </form>

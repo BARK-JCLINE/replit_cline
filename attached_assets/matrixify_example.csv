@@ -1,0 +1,2 @@
+Command,Number,Customer: Email,Shipping: Name,Shipping: Address 1,Shipping: Address 2,Shipping: City,Shipping: Zip,Shipping: Province,Shipping: Country,Line: Type,Line: Variant ID,Line: Quantity,Line: Price,Tags,Note,Payment Status,Fulfillment: Status,Fulfillment: Location
+New,15000,jcline+matrix3@barkbox.com,Jackie Cline,500 West Broad Street,,Columbus,43215,OH,US,Line Item,50680349688083,1,0,Includes Migrated Play Kit Subscription,,paid,success,OM Fulfillment Service BBL

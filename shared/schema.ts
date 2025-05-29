@@ -43,14 +43,15 @@ export const lineItemSchema = z.object({
 // Order Configuration Schemas
 export const insertOrderConfigurationSchema = createInsertSchema(orderConfigurations, {
   lineItems: z.array(lineItemSchema).min(1, "At least one line item is required"),
-  warehouse: z.string().min(1, "Warehouse is required"),
+  warehouse: z.string().optional(),
   address: z.string().min(1, "Address is required"),
   customerFirstName: z.string().min(1, "First name is required"),
   customerLastName: z.string().min(1, "Last name is required"),
-  customerEmail: z.string().email("Valid email is required"),
+  customerEmail: z.string().email("Valid email is required").min(1, "Email is required"),
+  orderDelay: z.number().optional().default(0),
+  randomizeData: z.boolean().optional().default(false),
   customTags: z.array(z.string()).optional(),
   orderCount: z.number().min(1).max(30000),
-  orderDelay: z.number().min(0).max(60),
   batchId: z.string().optional(),
 }).omit({
   id: true,
@@ -60,7 +61,7 @@ export const insertOrderConfigurationSchema = createInsertSchema(orderConfigurat
 export const insertOrderBatchSchema = createInsertSchema(orderBatches, {
   batchId: z.string().min(1),
   orderCount: z.number().min(1).max(30000),
-  status: z.enum(["pending", "processing", "completed", "failed"]),
+  status: z.enum(["pending", "processing", "completed", "failed", "partial"]),
 }).omit({
   id: true,
   createdAt: true,
